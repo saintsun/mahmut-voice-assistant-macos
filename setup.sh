@@ -89,12 +89,20 @@ PYCFG="$(dirname "$PY")/python$PYV-config"
   exit 1; }
 say_ok "embed baglama hazir"
 
-xcode-select -p >/dev/null 2>&1 || {
+if ! xcode-select -p >/dev/null 2>&1; then
   say_step "derleyici araclari"
-  echo "    Xcode Command Line Tools kuruluyor (pencere acilacak)..."
-  xcode-select --install || true
-  echo "    Kurulum bitince bu dosyayi tekrar calistir."
-  exit 1; }
+  echo "    Xcode Command Line Tools kuruluyor; cikan pencerede 'Yukle' de."
+  xcode-select --install >/dev/null 2>&1 || true
+  printf "    bekleniyor "
+  for _ in $(seq 1 120); do          # en fazla 20 dakika
+    xcode-select -p >/dev/null 2>&1 && break
+    printf "."; sleep 10
+  done
+  echo
+  xcode-select -p >/dev/null 2>&1 \
+    && say_ok "derleyici araclari hazir" \
+    || { say_err "Xcode araclari kurulmadi. Kurulumu bitirip bu dosyayi tekrar calistir."; exit 1; }
+fi
 
 # --- 4) Virtual environment -----------------------------------------------------
 say_step "python paketleri"
