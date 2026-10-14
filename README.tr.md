@@ -707,8 +707,33 @@ sarı = duraklatıldı/kesildi, gri = nötr.
 ### Hedef uygulama (Ayarlar > Kod uygulaması)
 
 - **Claude Code** (`com.anthropic.claudefordesktop`) — varsayılan, tam destek.
-- **GPT Codex (ChatGPT)** (`com.openai.codex`) — listede görünür ama
-  **seçilemez** (`TARGETS[...]["enabled"] = False`); henüz denenmedi.
+- **GPT Codex (ChatGPT)** (`com.openai.codex`) — artık seçilebilir.
+
+### Codex nasıl okunuyor
+
+Codex konuşmalarını yerelde tutuyor:
+
+| kaynak | içerik |
+|---|---|
+| `~/.codex/state_5.sqlite` → `threads` | ad, `cwd`, `rollout_path` (transkript) |
+| `~/.codex/.codex-global-state.json` → `local-projects` | proje adı ve `rootPaths` |
+| aynı dosya → `projectless-thread-ids` | projeye bağlı OLMAYAN konuşmalar |
+
+Veritabanındaki `project_id` sütunu hep boş; proje eşleşmesi thread'in
+`cwd`'sini projelerin `rootPaths` listesiyle karşılaştırarak bulunuyor. En uzun
+eşleşen kök kazanıyor, böylece iç içe klasörlerde yanlış projeye düşmüyor.
+`projectless-thread-ids` içindeki konuşmalar, yolu bir projenin altında olsa
+bile projesiz sayılıyor (kullanıcı onları kenar çubuğunda "Recents" altında
+tutuyor).
+
+Liste adı proje + konuşma: "Kunaz" projesindeki "Reklam" → **Kunaz Reklam**.
+Varsayılan favoriler yalnızca projeye bağlı konuşmalar; projesiz olanları elle
+ekleyebilirsin.
+
+Geçiş `codex://threads/<id>` deep link'iyle yapılıyor, okuma thread'in rollout
+dosyasından. Takipçi iki biçimi de anlıyor: Claude'un
+`assistant/message/content[text]` yapısı ve Codex'in
+`response_item/payload/content[output_text]` yapısı.
 
 Codex'in ayrı bir masaüstü uygulaması yok: `/Applications/ChatGPT.app`'in
 bundle id'si zaten `com.openai.codex` (eski uygulama "ChatGPT Classic" =

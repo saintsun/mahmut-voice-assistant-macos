@@ -4,6 +4,30 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **GPT Codex support.** Codex is now a selectable target next to Claude Code.
+  Conversations come from the app's own local state
+  (`~/.codex/state_5.sqlite` for threads, `.codex-global-state.json` for
+  projects), switching uses the `codex://threads/<id>` deep link, and replies
+  are read from the thread's rollout transcript.
+- Codex threads are named after their project: a thread "Reklam" inside the
+  project "Kunaz" is listed as **Kunaz Reklam**. The database's own
+  `project_id` is always empty, so the owning project is found by matching the
+  thread's `cwd` against each project's `rootPaths`; threads listed in
+  `projectless-thread-ids` stay out of any project even when their path sits
+  inside one.
+- Default favourites for Codex are the project conversations only; loose
+  "Recents" can be added by hand.
+- The panel shows **both** applications: the selected one is live and the
+  other appears below it, dimmed and inert, so you can see what is on the
+  other side before switching.
+- The transcript watcher understands both formats, Claude Code's
+  `assistant/message/content[text]` and Codex's
+  `response_item/payload/content[output_text]`.
+
 ## [1.0.0] — 2026-10-14
 
 First release. A macOS menu bar app that turns speech into Claude Code

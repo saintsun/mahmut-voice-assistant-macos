@@ -387,6 +387,11 @@ border-bottom:1px solid rgba(120,160,255,.07)}
 .vch.base{color:var(--neon);border-color:rgba(0,229,255,.35)}
 .amsg{margin:9px 0 2px;padding:8px 11px;border-radius:9px;font-size:12px;
   background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.35);color:#ffb3c0}
+.tgt{font-size:10.5px;color:var(--neon);letter-spacing:.06em;
+  text-transform:none;font-weight:600;margin-left:7px}
+.alt{opacity:.42;filter:saturate(.5)}
+.alt .card{pointer-events:none}
+.alt .tgt{color:var(--dim)}
 .pager{display:flex;align-items:center;justify-content:center;gap:9px;
   margin-top:9px;font-size:11.5px;color:var(--dim)}
 .pager button{min-width:auto;padding:4px 11px;font-size:12px;line-height:1.1}
@@ -564,7 +569,8 @@ background:rgba(0,255,163,.07);border:1px solid rgba(0,255,163,.35)}
 <div class="g2">
 <div class="card">
   <div class="hd">
-    <span class="lbl" style="margin:0" data-i18n="s_list">Liste</span>
+    <span class="lbl" style="margin:0"><span data-i18n="s_list">Liste</span>
+      <span class="tgt" id="tgtA"></span></span>
     <button onclick="go('list_read')" data-i18n-title="tt_readlist" data-i18n="btn_readlist">🔊&nbsp; Listeyi oku</button>
   </div>
   <div id="fav"></div>
@@ -577,8 +583,27 @@ background:rgba(0,255,163,.07);border:1px solid rgba(0,255,163,.35)}
   <div class="mini" data-i18n="hint_list">Adı değiştirmek için ✎ ya da çift tıkla.</div>
 </div>
 <div class="card">
-  <div class="lbl" data-i18n="s_open">Açık konuşmalar</div>
+  <div class="lbl"><span data-i18n="s_open">Açık konuşmalar</span>
+    <span class="tgt" id="tgtB"></span></div>
   <div id="sess"></div>
+</div>
+</div>
+
+<div class="g2 alt" id="altWrap" style="display:none">
+<div class="card">
+  <div class="hd">
+    <span class="lbl" style="margin:0"><span data-i18n="s_list">Liste</span>
+      <span class="tgt" id="tgtC"></span></span>
+    <span class="mini" data-i18n="alt_off">pasif</span>
+  </div>
+  <div id="fav2"></div>
+  <div class="mini" data-i18n="hint_alt">Bu uygulama seçili değil. Ayarlar >
+    Kod uygulaması'ndan geçersen bu liste etkin olur.</div>
+</div>
+<div class="card">
+  <div class="lbl"><span data-i18n="s_open">Açık konuşmalar</span>
+    <span class="tgt" id="tgtD"></span></div>
+  <div id="sess2"></div>
 </div>
 </div>
 
@@ -710,7 +735,7 @@ const I18N={
   btn_micoff:"⏹ Mikrofonu kapat",btn_micref:"🔄 Mikrofonu yenile",
   s_hotkeys:"Kısayollar",s_buffer:"Tampon",btn_send:"Gönder",btn_clear:"Temizle",
   s_list:"Liste",btn_readlist:"🔊 Listeyi oku",ph_addconv:"konuşma adı ekle…",
-  btn_add:"Ekle",s_open:"Açık konuşmalar",s_heard:"Son duyulanlar",tt_prev:"Önceki sayfa",tt_next:"Sonraki sayfa",rowcount:"({n} kayıt)",
+  btn_add:"Ekle",s_open:"Açık konuşmalar",alt_off:"pasif",hint_alt:"Bu uygulama seçili değil. Ayarlar > Kod uygulaması'ndan geçersen bu liste etkin olur.",s_heard:"Son duyulanlar",tt_prev:"Önceki sayfa",tt_next:"Sonraki sayfa",rowcount:"({n} kayıt)",
   btn_copyall:"Hepsini kopyala",s_settings:"Ayarlar",k_name:"Çağrı adı",
   k_lang:"Konuşma dili",k_pack:"Komut seti",k_voice:"Okuma sesi",
   btn_save:"Kaydet",btn_loadreset:"Yükle / Sıfırla",s_test:"Komut testi",
@@ -769,7 +794,7 @@ const I18N={
   btn_micoff:"⏹ Turn mic off",btn_micref:"🔄 Refresh mic",
   s_hotkeys:"Shortcuts",s_buffer:"Buffer",btn_send:"Send",btn_clear:"Clear",
   s_list:"List",btn_readlist:"🔊 Read the list",ph_addconv:"add conversation name…",
-  btn_add:"Add",s_open:"Open conversations",s_heard:"Recently heard",tt_prev:"Previous page",tt_next:"Next page",rowcount:"({n} rows)",
+  btn_add:"Add",s_open:"Open conversations",alt_off:"inactive",hint_alt:"This application is not selected. Switch to it under Settings > Coding app to make this list live.",s_heard:"Recently heard",tt_prev:"Previous page",tt_next:"Next page",rowcount:"({n} rows)",
   btn_copyall:"Copy all",s_settings:"Settings",k_name:"Wake name",
   k_lang:"Speech language",k_pack:"Command set",k_voice:"Reading voice",
   btn_save:"Save",btn_loadreset:"Load / Reset",s_test:"Command test",
@@ -1312,7 +1337,25 @@ function renderHist(){
      + (VAROPEN===i?varForm(h):"");}).join(""):
     `<div class="hrow"><span class="tx" style="color:var(--dim)">${t("nothing")}</span></div>`;
 }
+function renderAlt(d){
+  const w=document.getElementById("altWrap"); if(!w) return;
+  const a=d.alt||{};
+  ["tgtA","tgtB"].forEach(id=>{const e=document.getElementById(id);
+    if(e) e.textContent=d.target_label||"";});
+  if(!a.available){ w.style.display="none"; return; }
+  w.style.display="";
+  ["tgtC","tgtD"].forEach(id=>{const e=document.getElementById(id);
+    if(e) e.textContent=a.label||"";});
+  document.getElementById("fav2").innerHTML=(a.favorites||[]).map((f,i)=>
+    `<div class="fav"><span class="no">${i+1}</span>
+     <span class="nm">${esc(f.name)}${f.open?"":" · "+t("closed")}</span></div>`).join("")
+    || `<div class="mini">${t("nothing")}</div>`;
+  document.getElementById("sess2").innerHTML=(a.sessions||[]).map(x=>
+    `<div class="sess"><span class="nm">${x.routine?"⏱":"💬"} ${esc(x.name)}</span></div>`).join("")
+    || `<div class="mini">${t("nothing")}</div>`;
+}
 function renderRest(d){
+  renderAlt(d);
   document.getElementById("hk").innerHTML=(d.hotkeys||[]).map((h,i)=>
     `<button onclick="go('hotkey',${i})" title="${t("tt_hotkey")}">🎛&nbsp; ${esc(h)}</button>`).join("")||
     t("nohotkey");

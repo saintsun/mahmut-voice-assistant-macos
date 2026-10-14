@@ -306,6 +306,17 @@ defaulting to **Automatic**:
 | Speaker: Automatic | system output |
 | Speaker: a device | reading plays there; falls back to the system default when missing |
 
+### Coding app
+
+Settings > System > Coding app picks where messages go: **Claude Code** or
+**GPT Codex**. Both read their conversations from local state, so switching
+needs no account or API key.
+
+For Codex, conversations are named after their project - a thread "Reklam"
+inside the project "Kunaz" shows up as **Kunaz Reklam** - and the default
+favourites are the project conversations only. The panel lists both
+applications at once; the one that is not selected is shown dimmed and inert.
+
 Stored as `audio.device` / `audio.output_device`; a name fragment (`"airpods"`)
 or an index both work. Choosing an explicit **output** forces the render
 playback path, because a `say` process always plays to the system output.
@@ -481,9 +492,8 @@ process: restart the application after editing `panel.py`.
 
 - Apple Silicon only (MLX).
 - The target application must be running for a message to be delivered.
-- Reading replies works with Claude Code only, whose transcripts are the
-  source. A GPT Codex target appears in Settings but is disabled: sending would
-  likely work, reading has no equivalent source.
+- Codex support reads the desktop app's local state; a Codex build that stores
+  its conversations elsewhere would need the paths updated.
 - The bundle is not relocatable — the project path and virtualenv are compiled
   in, and the model lives in `~/.cache/huggingface`. Distributing a prebuilt
   binary would require packaging dependencies and the model inside the `.app`.

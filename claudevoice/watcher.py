@@ -108,28 +108,51 @@ class TranscriptWatcher:
         self.watched = sorted(self._names.values())
 
     # --- line handling ---
+    @staticmethod
+    def _assistant_texts(row: dict) -> list[str]:
+        """Assistant text blocks, in either transcript format.
+
+        Claude Code:
+          {"type": "assistant", "message": {"content": [{"type": "text", ...}]}}
+        Codex:
+          {"type": "response_item",
+           "payload": {"type": "message", "role": "assistant",
+                       "content": [{"type": "output_text", "text": ...}]}}
+        """
+        if row.get("type") == "assistant" and not row.get("isSidechain"):
+            blocks = (row.get("message", {}) or {}).get("content", []) or []
+            return [b.get("text", "") for b in blocks
+                    if isinstance(b, dict) and b.get("type") == "text"]
+        if row.get("type") == "response_item":
+            p = row.get("payload") or {}
+            if p.get("type") == "message" and p.get("role") == "assistant":
+                return [b.get("text", "") for b in (p.get("content") or [])
+                        if isinstance(b, dict)
+                        and b.get("type") in ("output_text", "text")]
+        return []
+
     def _handle(self, raw: bytes, session_name: str) -> None:
         try:
             row = json.loads(raw.decode("utf-8", "replace"))
         except Exception:
             return
-        if row.get("type") != "assistant" or row.get("isSidechain"):
+        texts = self._assistant_texts(row)
+        if not texts:
             return
-        uid = row.get("uuid")
+        uid = row.get("uuid") or row.get("id") or (row.get("payload") or {}).get("id")
         if uid:
             if uid in self._seen:
                 return
             self._seen.add(uid)
             if len(self._seen) > 6000:
                 self._seen = set(list(self._seen)[-3000:])
-        for block in (row.get("message", {}) or {}).get("content", []) or []:
-            if isinstance(block, dict) and block.get("type") == "text":
-                text = (block.get("text") or "").strip()
-                if text:
-                    try:
-                        self.callback(session_name, text)
-                    except Exception as exc:
-                        print(f"[watch] callback hatasi: {exc}")
+        for block in texts:
+            text = (block or "").strip()
+            if text:
+                try:
+                    self.callback(session_name, text)
+                except Exception as exc:
+                    print(f"[watch] callback hatasi: {exc}")
 
     def _run(self) -> None:
         while not self._stop.is_set():

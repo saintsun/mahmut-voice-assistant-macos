@@ -27,6 +27,7 @@ import time
 import rumps
 
 from . import __version__
+from . import codex as codex_src
 from .audio import Microphone, list_devices as audio_devices
 from .clean import to_speech
 from .config import CONFIG_PATH, MUTED_PATH, STATE_PATH, Config
@@ -35,7 +36,7 @@ from . import langpacks
 from .inject import KEYCODES, Injector, ax_request, ax_trusted
 from .panel import Panel
 from .phrases import Matcher, fold, tokenize, word_eq
-from .sessions import (Registry, TitleIndex, find_exact,
+from .sessions import (Registry, TitleIndex, find_exact, match,
                        resume_session, switch_to, wait_for_session,
                        wait_for_session_id)
 
@@ -73,7 +74,7 @@ ICON = {OFF: "⚪️", SLEEP: "😴", ARMED: "🎙", LIVE: "🔴"}
 TARGETS = {
     "claude": {"label": "Claude Code", "enabled": True,
                "bundle_id": "com.anthropic.claudefordesktop"},
-    "codex":  {"label": "GPT Codex (ChatGPT)", "enabled": False,
+    "codex":  {"label": "GPT Codex (ChatGPT)", "enabled": True,
                "bundle_id": "com.openai.codex"},
 }
 
@@ -202,6 +203,7 @@ class ClaudeVoice(rumps.App):
                 except Exception as exc:
                     print(f"[hotkey] {hk.get('name')!r} derlenemedi: {exc!r}")
         print(f"[hotkey] {len(self.hotkeys)} kısayol eylemi yüklendi")
+        self._codex_registry = codex_src.Registry()
         self.favorites: list[dict] = self._load_favorites()
         self._compile_favorites()
         self.glossary = Glossary()
@@ -215,7 +217,8 @@ class ClaudeVoice(rumps.App):
             self.speaker.output_device = resolve_output(self.cfg["audio"])[0]
         except Exception as exc:
             print(f"[audio] çıkış cihazı ayarlanamadı: {exc}")
-        self.watcher = TranscriptWatcher(self._on_assistant_text, self.registry)
+        self.watcher = TranscriptWatcher(self._on_assistant_text,
+                                         self.src_registry())
         self.panel = Panel(self, int(self.cfg.get("ui", "panel_port", 8765)))
 
         self.stop_hotkey = ""
@@ -249,7 +252,7 @@ class ClaudeVoice(rumps.App):
     def _refresh_sessions_menu(self) -> None:
         """Rebuilds the submenu when the conversation list changed."""
         try:
-            sessions = self.registry.all()
+            sessions = self.src_live()
         except Exception:
             return
         sig = tuple((s.name, s.host_id, s.status) for s in sessions)
@@ -295,7 +298,7 @@ class ClaudeVoice(rumps.App):
             return True
         if self.mute_routines:
             try:
-                for s in self.registry.all():
+                for s in self.src_live():
                     if s.name == name:
                         return s.routine or self._name_excluded(name)
             except Exception:
@@ -322,7 +325,7 @@ class ClaudeVoice(rumps.App):
 
     def _refresh_mute_menu(self) -> None:
         try:
-            sessions = self.registry.all()
+            sessions = self.src_live()
         except Exception:
             return
         sig = tuple((s.name, self.is_muted(s.name)) for s in sessions)
@@ -343,7 +346,7 @@ class ClaudeVoice(rumps.App):
             self.mi_mute.add(item)
 
     def _menu_switch(self, session, _=None) -> None:
-        ok, msg = switch_to(session)
+        ok, msg = self.src_switch(session)
         self._set_status(f"geçildi: {msg}" if ok else f"geçilemedi: {msg}")
 
     def _refresh_menu(self) -> None:
@@ -685,7 +688,7 @@ class ClaudeVoice(rumps.App):
             state, buf, status = self.state, self.buffer, self.status
         sessions = []
         try:
-            for sess in self.registry.all():
+            for sess in self.src_live():
                 sessions.append({"name": sess.name, "routine": sess.routine,
                                  "muted": self.is_muted(sess.name),
                                  "id": sess.session_id})
@@ -723,6 +726,9 @@ class ClaudeVoice(rumps.App):
             "recv_count": getattr(self, "_recv_count", 0),
             "watching": list(self.watcher.watched),
             "panel_port": self.panel.port,
+            "alt": self.alt_payload(),
+            "target_label": TARGETS.get(
+                self.cfg.get("inject", "target", "claude"), {}).get("label", ""),
             "targets": [{"code": k, "label": v["label"],
                          "enabled": bool(v.get("enabled"))}
                         for k, v in TARGETS.items()],
@@ -867,7 +873,7 @@ class ClaudeVoice(rumps.App):
             if name and name not in self._fav_names():
                 sid = None
                 try:
-                    hit = find_exact(name, self.registry.all(force=True))
+                    hit = self.src_find_exact(name)
                     sid = hit.session_id if hit else None
                 except Exception:
                     pass
@@ -897,7 +903,7 @@ class ClaudeVoice(rumps.App):
             except ValueError:
                 return
             try:
-                hit = find_exact(name.strip(), self.registry.all(force=True))
+                hit = self.src_find_exact(name.strip())
             except Exception:
                 hit = None
             if hit is not None and 0 <= i < len(self.favorites):
@@ -1501,12 +1507,88 @@ class ClaudeVoice(rumps.App):
             return False, f"{want!r} bulunamadı, sistem varsayılanına dönüldü"
         return True, f"hoparlör: {name}"
 
+    # ------------------------------------------------- target-aware source
+    # Claude Code and Codex both keep their conversations locally, in
+    # different shapes. Everything that lists, matches, switches or reads a
+    # conversation goes through these helpers so the rest of the app does not
+    # care which application is selected.
+    def is_codex(self) -> bool:
+        return self.cfg.get("inject", "target", "claude") == "codex"
+
+    def src_registry(self):
+        return self._codex_registry if self.is_codex() else self.registry
+
+    def src_live(self, force: bool = False) -> list:
+        return self.src_registry().all(force=force)
+
+    def src_find_exact(self, name: str, rows=None):
+        rows = self.src_live(force=True) if rows is None else rows
+        if self.is_codex():
+            return codex_src.find_exact(name, rows)
+        return find_exact(name, rows)
+
+    def src_match(self, name: str, rows=None):
+        if self.is_codex():
+            return codex_src.match(name, rows)
+        return match(name, rows)
+
+    def src_switch(self, sess) -> tuple[bool, str]:
+        if self.is_codex():
+            return codex_src.switch_to(sess)
+        return switch_to(sess)
+
+    def alt_payload(self) -> dict:
+        """The OTHER target's list and conversations, for the disabled pair.
+
+        The panel shows both applications at once so you can see what is on
+        the other side before switching; only the selected one is live.
+        """
+        other = "claude" if self.is_codex() else "codex"
+        info = TARGETS.get(other, {})
+        favs: list[dict] = []
+        rows: list = []
+        try:
+            if other == "codex":
+                if codex_src.available():
+                    rows = codex_src.live_threads()
+                    favs = (self.cfg.get("ui", "favorites_codex", []) or
+                            [{"name": t.name, "id": t.id}
+                             for t in codex_src.project_threads()])
+            else:
+                rows = self.registry.all()
+                favs = self.cfg.get("ui", "favorites", []) or []
+        except Exception as exc:
+            print(f"[panel] {other} listesi okunamadi: {exc}")
+        names = {getattr(r, "name", "") for r in rows}
+        return {
+            "target": other,
+            "label": info.get("label", other),
+            "available": bool(rows) or bool(favs),
+            "favorites": [{"name": (f.get("name") if isinstance(f, dict) else str(f)),
+                           "open": (f.get("name") if isinstance(f, dict) else str(f)) in names}
+                          for f in favs],
+            "sessions": [{"name": getattr(r, "name", ""),
+                          "routine": bool(getattr(r, "routine", False))}
+                         for r in rows],
+        }
+
+    def src_default_favorites(self) -> list[dict]:
+        """Starting list for a target the user has not set up yet.
+
+        Codex already groups its conversations into projects, so those become
+        the default favourites ("Kunaz Reklam"); loose ones stay out and can
+        be added by hand.
+        """
+        if not self.is_codex():
+            return []
+        return [{"name": t.name, "id": t.id} for t in codex_src.project_threads()]
+
     def set_target(self, code: str) -> tuple[bool, str]:
         """Picks the application messages are sent to.
 
-        Reading replies aloud only works with Claude Code, since that is where
-        the transcript JSONL files come from. Typing and sending would work
-        with Codex, but there is no source to read from.
+        Claude Code and Codex keep separate favourites, sessions and
+        transcripts, so the watcher, the favourites and the ordinal patterns
+        are all rebuilt when the target changes.
         """
         code = (code or "").strip().lower()
         t = TARGETS.get(code)
@@ -1514,9 +1596,21 @@ class ClaudeVoice(rumps.App):
             return False, f"bilinmeyen hedef: {code}"
         if not t.get("enabled"):
             return False, f"{t['label']} henüz hazır değil"
+        if code == "codex" and not codex_src.available():
+            return False, "Codex bulunamadı (~/.codex yok)"
         self.cfg.set("inject", "target", code)
         self.cfg.set("inject", "bundle_id", t["bundle_id"])
         self.injector.bundle_id = t["bundle_id"]
+        self.favorites = self._load_favorites()
+        self._compile_favorites()
+        try:
+            self.watcher.stop()
+            self.watcher = TranscriptWatcher(self._on_assistant_text,
+                                             self.src_registry())
+            self.watcher.start()
+        except Exception as exc:
+            print(f"[hedef] takipçi yeniden kurulamadı: {exc}")
+        self._mute_sig = ()                    # menu rebuilds on next tick
         return True, f"hedef uygulama: {t['label']}"
 
     def set_language(self, lang: str) -> tuple[bool, str]:
@@ -1963,7 +2057,12 @@ class ClaudeVoice(rumps.App):
         it is stored as well and the name updates itself.
         """
         out: list[dict] = []
-        for item in (self.cfg.get("ui", "favorites", []) or []):
+        key = "favorites_codex" if self.is_codex() else "favorites"
+        stored = self.cfg.get("ui", key, []) or []
+        if not stored and self.is_codex():
+            stored = self.src_default_favorites()
+            self.cfg.set("ui", key, stored)
+        for item in stored:
             if isinstance(item, dict):
                 out.append({"name": str(item.get("name", "")).strip(),
                             "id": item.get("id") or None})
@@ -1977,7 +2076,7 @@ class ClaudeVoice(rumps.App):
     def _heal_favorites(self) -> None:
         """Fills in missing ids and refreshes names that changed."""
         try:
-            sessions = self.registry.all()
+            sessions = self.src_live()
         except Exception:
             return
         by_id = {s.session_id: s for s in sessions}
@@ -1991,7 +2090,7 @@ class ClaudeVoice(rumps.App):
                     changed = True
                 continue
             # no id: try the open sessions first, then the title index
-            hit = find_exact(f["name"], sessions)
+            hit = self.src_find_exact(f["name"], sessions)
             if hit is not None:
                 f["id"] = hit.session_id
                 changed = True
@@ -2053,7 +2152,7 @@ class ClaudeVoice(rumps.App):
                 self.speaker.say(g("list_empty", "Liste boş."))
             return
         try:
-            acik = {s.name for s in self.registry.all(force=True)}
+            acik = {s.name for s in self.src_live(force=True)}
         except Exception:
             acik = set()
         item_tpl = g("list_item", "{no} {name}")
@@ -2079,17 +2178,18 @@ class ClaudeVoice(rumps.App):
         fav = self.favorites[index - 1]
         name, fid = fav.get("name", ""), fav.get("id")
         try:
-            sessions = self.registry.all(force=True)
+            sessions = self.src_live(force=True)
         except Exception:
             sessions = []
         # 1) ID: holds even when the name changed
         session = next((x for x in sessions if x.session_id == fid), None)
         # 2) exact name (fuzzy matching picked a similar name instead)
         if session is None:
-            session = find_exact(name, sessions)
+            session = self.src_find_exact(name, sessions)
         if session is None:
-            from .sessions import match as _match
-            session, _, _ = _match(name, sessions, threshold=0.85)
+            session, sc, _ = self.src_match(name, sessions)
+            if sc < 0.85:
+                session = None
         if session is not None:
             if session.name and session.name != name:
                 fav["name"] = session.name        # ad degismisse guncelle
@@ -2196,7 +2296,7 @@ class ClaudeVoice(rumps.App):
             prev = None                        # zaten Claude'daydik, dokunma
         else:
             print(f"[odak] geçiş öncesi önde: {prev_name!r} (pid {prev})")
-        ok, msg = switch_to(session)
+        ok, msg = self.src_switch(session)
         if ok:
             self._last_announced = None
             self._set_status(("açıldı ve seçildi: " if resumed else "seçildi: ")
@@ -2360,7 +2460,7 @@ class ClaudeVoice(rumps.App):
             self._set_status(f"konuşma bulunamadı: {spoken_name} (en yakın: {near})")
             self._notify("Konuşma bulunamadı", f"{spoken_name} → en yakın: {near}")
             return
-        ok, msg = switch_to(session)
+        ok, msg = self.src_switch(session)
         if ok:
             self._last_announced = None          # yeni konusmada adi tekrar soyle
             self._set_status(f"geçildi: {session.name} ({score:.0%})")
