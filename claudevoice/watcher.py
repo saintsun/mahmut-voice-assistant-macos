@@ -76,6 +76,19 @@ class TranscriptWatcher:
     def stop(self) -> None:
         self._stop.set()
 
+    def alive(self) -> bool:
+        return bool(self._thread and self._thread.is_alive())
+
+    def ensure_alive(self) -> bool:
+        """Is parcacigi olmusse yeniden baslatir. True: yeniden baslatildi."""
+        if self._stop.is_set() or self.alive():
+            return False
+        print("[watch] takip durmus, yeniden baslatiliyor")
+        self._thread = threading.Thread(target=self._run, daemon=True,
+                                        name="claudevoice-watch")
+        self._thread.start()
+        return True
+
     # --- oturum listesini takiple esitle ---
     def _sync(self) -> None:
         sessions: list[Session] = self.registry.all(force=True)
@@ -126,8 +139,14 @@ class TranscriptWatcher:
                     self._sync()
                 except Exception as exc:
                     print(f"[watch] oturum taramasi: {exc}")
-            for path, tail in list(self._tails.items()):
-                name = self._names.get(path, "Claude")
-                for raw in tail.read_new():
-                    self._handle(raw, name)
+            # Buradaki tek bir istisna is parcacigini OLDURUYORDU: takip
+            # sessizce duruyor, mesajlar hic okunmuyor ve hicbir yerde iz
+            # kalmiyordu. Artik hata loglanip dongu devam ediyor.
+            try:
+                for path, tail in list(self._tails.items()):
+                    name = self._names.get(path, "Claude")
+                    for raw in tail.read_new():
+                        self._handle(raw, name)
+            except Exception as exc:
+                print(f"[watch] okuma hatasi: {exc!r}")
             self._stop.wait(self.poll_sec)

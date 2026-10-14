@@ -384,6 +384,11 @@ border-bottom:1px solid rgba(120,160,255,.07)}
 .vch.base{color:var(--neon);border-color:rgba(0,229,255,.35)}
 .amsg{margin:9px 0 2px;padding:8px 11px;border-radius:9px;font-size:12px;
   background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.35);color:#ffb3c0}
+.pager{display:flex;align-items:center;justify-content:center;gap:9px;
+  margin-top:9px;font-size:11.5px;color:var(--dim)}
+.pager button{min-width:auto;padding:4px 11px;font-size:12px;line-height:1.1}
+.pager button:disabled{opacity:.35;cursor:default}
+.pager .pg{font-family:"JetBrains Mono",monospace;letter-spacing:.04em}
 .mini.okmsg{color:#b4ff86}
 .mini.errmsg{color:#ffb3c0}
 .amsg.ok{background:rgba(0,255,163,.08);border-color:rgba(0,255,163,.3);color:#9affd8}
@@ -527,6 +532,7 @@ background:rgba(0,255,163,.07);border:1px solid rgba(0,255,163,.35)}
     </span>
   </div>
   <div class="hist" id="hist"></div>
+  <div class="pager" id="pager"></div>
   <div class="mini" data-i18n="hint_heard">Bir satıra tıkla → panoya kopyalanır. Yeşil = komut tetikledi.</div>
 </div>
 </div>
@@ -690,7 +696,7 @@ const I18N={
   btn_micoff:"⏹ Mikrofonu kapat",btn_micref:"🔄 Mikrofonu yenile",
   s_hotkeys:"Kısayollar",s_buffer:"Tampon",btn_send:"Gönder",btn_clear:"Temizle",
   s_list:"Liste",btn_readlist:"🔊 Listeyi oku",ph_addconv:"konuşma adı ekle…",
-  btn_add:"Ekle",s_open:"Açık konuşmalar",s_heard:"Son duyulanlar",
+  btn_add:"Ekle",s_open:"Açık konuşmalar",s_heard:"Son duyulanlar",tt_prev:"Önceki sayfa",tt_next:"Sonraki sayfa",rowcount:"({n} kayıt)",
   btn_copyall:"Hepsini kopyala",s_settings:"Ayarlar",k_name:"Çağrı adı",
   k_lang:"Konuşma dili",k_pack:"Komut seti",k_voice:"Okuma sesi",
   btn_save:"Kaydet",btn_loadreset:"Yükle / Sıfırla",s_test:"Komut testi",
@@ -749,7 +755,7 @@ const I18N={
   btn_micoff:"⏹ Turn mic off",btn_micref:"🔄 Refresh mic",
   s_hotkeys:"Shortcuts",s_buffer:"Buffer",btn_send:"Send",btn_clear:"Clear",
   s_list:"List",btn_readlist:"🔊 Read the list",ph_addconv:"add conversation name…",
-  btn_add:"Add",s_open:"Open conversations",s_heard:"Recently heard",
+  btn_add:"Add",s_open:"Open conversations",s_heard:"Recently heard",tt_prev:"Previous page",tt_next:"Next page",rowcount:"({n} rows)",
   btn_copyall:"Copy all",s_settings:"Settings",k_name:"Wake name",
   k_lang:"Speech language",k_pack:"Command set",k_voice:"Reading voice",
   btn_save:"Save",btn_loadreset:"Load / Reset",s_test:"Command test",
@@ -1239,14 +1245,38 @@ async function tick(){
   renderHist();
   renderRest(d);
 }
+let HPAGE=0;
+const HPER=8;                       // sayfa basina satir
+function histPages(){ return Math.max(1, Math.ceil(HIST.length/HPER)); }
+function histGo(d){
+  HPAGE=Math.min(histPages()-1, Math.max(0, HPAGE+d));
+  renderHist();
+}
+function renderPager(){
+  const el=document.getElementById("pager"); if(!el) return;
+  const n=histPages();
+  if(HIST.length<=HPER){ el.innerHTML=""; return; }
+  el.innerHTML=
+    `<button onclick="histGo(-1)" ${HPAGE<=0?"disabled":""} title="${t("tt_prev")}">&lsaquo;</button>`
+    + `<span class="pg">${HPAGE+1} / ${n}</span>`
+    + `<button onclick="histGo(1)" ${HPAGE>=n-1?"disabled":""} title="${t("tt_next")}">&rsaquo;</button>`
+    + `<span style="margin-left:6px">${t("rowcount",{n:HIST.length})}</span>`;
+}
 function renderHist(){
-  document.getElementById("hist").innerHTML=HIST.length?HIST.map((h,i)=>
-    `<div class="hrow" onclick="copyOne(${i},this)"><span class="tm">${esc(h.t)}</span>
+  // Liste kisaldiysa (temizleme) acik sayfayi geri cek.
+  if(HPAGE > histPages()-1) HPAGE=histPages()-1;
+  const from=HPAGE*HPER, page=HIST.slice(from, from+HPER);
+  renderPager();
+  document.getElementById("hist").innerHTML=HIST.length?page.map((h,j)=>{
+    const i=from+j;                 // MUTLAK sira: "+" formu buna baglı
+    // DIKKAT: sablon `return` ile AYNI satirda baslamali; alt satira
+    // atilirsa JavaScript araya noktali virgul koyup undefined donduruyor.
+    return `<div class="hrow" onclick="copyOne(${i},this)"><span class="tm">${esc(h.t)}</span>
      <span class="tx">${esc(h.text)}</span>
      <span class="rs${h.fired?" fire":""}">${esc(h.result||"")}</span>
      <button class="addv" title="${t("tt_addv")}"
        onclick="event.stopPropagation();openVar(${i})">+</button></div>`
-     + (VAROPEN===i?varForm(h):"")).join(""):
+     + (VAROPEN===i?varForm(h):"");}).join(""):
     `<div class="hrow"><span class="tx" style="color:var(--dim)">${t("nothing")}</span></div>`;
 }
 function renderRest(d){

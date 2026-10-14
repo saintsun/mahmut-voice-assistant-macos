@@ -368,6 +368,14 @@ class ClaudeVoice(rumps.App):
 
     @rumps.timer(0.4)
     def _tick(self, _) -> None:
+        # Takipci olduyse geri getir: olmazsa mesajlar sessizce okunmaz.
+        self._wd = getattr(self, "_wd", 0) + 1
+        if self._wd % 25 == 0:                 # ~10 saniyede bir
+            try:
+                if self.watcher.ensure_alive():
+                    self._set_status("transkript takibi yeniden başlatıldı")
+            except Exception:
+                pass
         self._refresh_menu()
         self._ticks = getattr(self, "_ticks", 0) + 1
         if self._ticks % 5 == 0:
@@ -483,6 +491,9 @@ class ClaudeVoice(rumps.App):
             "capture": {"key": self._capture, "text": self._capture_text},
             "target": self.cfg.get("inject", "target", "claude"),
             "stop_hotkey": self.stop_hotkey,
+            "last_received": self._last_received,
+            "recv_count": getattr(self, "_recv_count", 0),
+            "watching": list(self.watcher.watched),
             "panel_port": self.panel.port,
             "targets": [{"code": k, "label": v["label"],
                          "enabled": bool(v.get("enabled"))}
@@ -693,6 +704,9 @@ class ClaudeVoice(rumps.App):
             "capture": {"key": self._capture, "text": self._capture_text},
             "target": self.cfg.get("inject", "target", "claude"),
             "stop_hotkey": self.stop_hotkey,
+            "last_received": self._last_received,
+            "recv_count": getattr(self, "_recv_count", 0),
+            "watching": list(self.watcher.watched),
             "panel_port": self.panel.port,
             "targets": [{"code": k, "label": v["label"],
                          "enabled": bool(v.get("enabled"))}
@@ -1608,6 +1622,11 @@ class ClaudeVoice(rumps.App):
             max_chars=int(self.cfg.get("tts", "max_chars", 1200)),
         )
         self._last_received = session_name
+        self._recv_count = getattr(self, "_recv_count", 0) + 1
+        # Takipci gercekten metin getiriyor mu, loga bak: sorun cikinca
+        # "okundu mu / hic gelmedi mi" ayrimini yapacak tek iz buydu.
+        print(f"[oku] {session_name}: {len(markdown)} karakter "
+              f"-> {len(spoken)} okunacak")
         if not spoken:
             return
         # Kuyruk tek tek okudugu icin paralel gelen mesajlar sirasini bekler.
