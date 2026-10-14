@@ -1,0 +1,7 @@
+numpy>=2.0
+sounddevice>=0.5
+mlx-whisper>=0.4
+rumps>=0.4
+pyobjc-framework-Cocoa>=10.0
+pyobjc-framework-Quartz>=10.0
+pyobjc-framework-ApplicationServices>=10.0

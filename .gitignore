@@ -1,0 +1,26 @@
+# sanal ortam ve uretilen dosyalar
+.venv/
+__pycache__/
+*.pyc
+
+# uretilen uygulama (herkes kendi makinesinde ./setup.sh ile uretir)
+Mahmut.app/
+.launcher.c
+assets/Mahmut.iconset/
+
+# KULLANICI VERISI — repoya girmemeli
+config.json
+.state.json
+.muted.json
+.app.log
+.app.lock
+.tts.pids
+.inject_test.json
+.hotkey_test.json
+.axprobe.json
+
+# calisma loglari
+.autostart.log
+
+# yerel Claude Code ayarlari
+.claude/
