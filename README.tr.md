@@ -545,6 +545,27 @@ panoya kopyalanır, *Hepsini kopyala* ile tüm liste `saat  metin  → sonuç`
 biçiminde alınır. Yeni bir yanlış duyma görürsen `config.json` →
 `phrases.word_variants` altındaki ilgili kelimenin listesine ekle.
 
+## Mikrofon ve hoparlör seçimi
+
+**Ayarlar > Ses ve dil** altında iki açılır liste var. Varsayılan ikisinde de
+**Otomatik**:
+
+| Seçim | Davranış |
+|---|---|
+| Mikrofon: Otomatik | Kulaklık varsa kulaklık mikrofonu, yoksa dahili (`audio.prefer`) |
+| Mikrofon: belirli cihaz | Kulaklık takılsa bile o cihazda kalır. Seçtiğin cihaz ortada yoksa otomatiğe düşer, sistem sağır kalmaz |
+| Hoparlör: Otomatik | Sistem çıkışı |
+| Hoparlör: belirli cihaz | Okuma o cihazdan çalar. Cihaz yoksa sistem varsayılanına döner |
+
+Seçim `audio.device` ve `audio.output_device` olarak saklanır; isim parçası da
+yeterli (`"airpods"`), indeks de verilebilir. Belirli bir **çıkış** seçilince
+okuma her zaman render yolundan geçer — `say` süreci sistem çıkışına çalar,
+cihaz seçimini dinlemez.
+
+`./test_devices.py` bu kuralları ses donanımı olmadan, sahte cihaz listesiyle
+test eder (12 durum: otomatik seçim, açık seçim, cihaz yokken düşme, indeksle
+seçim, tam ad önceliği, geçersiz seçim).
+
 ## Bluetooth kulaklıkta cızırtı
 
 AirPods takılıyken okuma cızırtılı geliyordu. Sebep yazılım hatası değil,

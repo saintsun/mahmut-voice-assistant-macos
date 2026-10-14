@@ -26,7 +26,7 @@ import time
 
 import rumps
 
-from .audio import Microphone
+from .audio import Microphone, list_devices as audio_devices
 from .clean import to_speech
 from .config import CONFIG_PATH, MUTED_PATH, STATE_PATH, Config
 from .glossary import Glossary
@@ -208,6 +208,11 @@ class ClaudeVoice(rumps.App):
         self.titles = TitleIndex()        # kapali oturumlari bulmak icin
         self.speaker = Speaker(self.cfg["tts"],
                                on_start=self._tts_started, on_end=self._tts_ended)
+        try:
+            from .audio import resolve_output
+            self.speaker.output_device = resolve_output(self.cfg["audio"])[0]
+        except Exception as exc:
+            print(f"[audio] çıkış cihazı ayarlanamadı: {exc}")
         self.watcher = TranscriptWatcher(self._on_assistant_text, self.registry)
         self.panel = Panel(self, int(self.cfg.get("ui", "panel_port", 8765)))
 
@@ -706,6 +711,10 @@ class ClaudeVoice(rumps.App):
             "capture": {"key": self._capture, "text": self._capture_text},
             "target": self.cfg.get("inject", "target", "claude"),
             "stop_hotkey": self.stop_hotkey,
+            "devices": audio_devices(),
+            "in_device": self.cfg.get("audio", "device", None) or "",
+            "out_device": self.cfg.get("audio", "output_device", None) or "",
+            "in_active": self.mic.device_name,
             "last_received": self._last_received,
             "recv_count": getattr(self, "_recv_count", 0),
             "watching": list(self.watcher.watched),
@@ -791,6 +800,14 @@ class ClaudeVoice(rumps.App):
             self._set_status(msg)
         elif action == "set_stop_hotkey" and arg:
             ok, msg = self.set_stop_hotkey(str(arg))
+            self._amsg = ("✅ " if ok else "🔴 ") + msg
+            self._set_status(msg)
+        elif action == "set_input_device":
+            ok, msg = self.set_input_device(arg)
+            self._amsg = ("✅ " if ok else "🔴 ") + msg
+            self._set_status(msg)
+        elif action == "set_output_device":
+            ok, msg = self.set_output_device(arg)
             self._amsg = ("✅ " if ok else "🔴 ") + msg
             self._set_status(msg)
         elif action == "set_target" and arg:
@@ -1459,6 +1476,26 @@ class ClaudeVoice(rumps.App):
             self.cfg.get("ui", "langpack", "tr"), langpacks.PACKS["tr"])
         return (p["ordinals"], p["ordinals_acc"], p["numbers"],
                 p["numbers_acc"], p["select_verbs"])
+
+    def set_input_device(self, value) -> tuple[bool, str]:
+        """Mikrofonu secer. "" / None -> otomatik (kulaklik varsa kulaklik)."""
+        want = (value or "").strip() if isinstance(value, str) else value
+        self.cfg.set("audio", "device", want or None)
+        name = self.mic.refresh_device(rescan=True) or self.mic.device_name
+        if want:
+            return True, f"mikrofon: {name}"
+        return True, f"mikrofon: otomatik ({name})"
+
+    def set_output_device(self, value) -> tuple[bool, str]:
+        """Okumanin calacagi cihazi secer. "" / None -> sistem varsayilani."""
+        from .audio import resolve_output
+        want = (value or "").strip() if isinstance(value, str) else value
+        self.cfg.set("audio", "output_device", want or None)
+        idx, name = resolve_output(self.cfg["audio"])
+        self.speaker.output_device = idx
+        if want and idx is None:
+            return False, f"{want!r} bulunamadı, sistem varsayılanına dönüldü"
+        return True, f"hoparlör: {name}"
 
     def set_target(self, code: str) -> tuple[bool, str]:
         """Mesajin gonderilecegi uygulamayi secer.

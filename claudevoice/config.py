@@ -60,6 +60,9 @@ DEFAULTS = {
         #                bozulabilir ("patlak" ses); bunu istemiyorsan bunu sec.
         #   "system"  -> sistem varsayilani
         "prefer": "headset",
+        # Kullanici panelden belirli bir CIKIS cihazi sectiyse okuma oradan
+        # calar; null ise sistem varsayilani kullanilir.
+        "output_device": None,
         "sample_rate": 16000,
         "frame_ms": 30,
         "vad_ratio": 3.2,            # gurultu tabanina gore kac kat

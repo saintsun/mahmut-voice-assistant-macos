@@ -116,6 +116,67 @@ def _inputs():
     return [(i, d) for i, d in enumerate(devices) if d["max_input_channels"] > 0]
 
 
+def _outputs():
+    import sounddevice as sd
+    try:
+        devices = sd.query_devices()
+    except Exception:
+        return []
+    return [(i, d) for i, d in enumerate(devices) if d["max_output_channels"] > 0]
+
+
+def list_devices() -> dict:
+    """Panelde gosterilecek giris/cikis cihazlari."""
+    def rows(items):
+        seen, out = set(), []
+        for i, d in items:
+            name = str(d["name"]).strip()
+            if name and name not in seen:
+                seen.add(name)
+                out.append({"index": i, "name": name})
+        return out
+    return {"inputs": rows(_inputs()), "outputs": rows(_outputs())}
+
+
+def pick_device(want, items) -> tuple[int | None, str] | None:
+    """Kullanicinin SECTIGI cihazi bul (indeks ya da isim parcasi).
+
+    Bulunamazsa None doner; cagiran otomatik secime duser. Boylece
+    "kulaklik mikrofonu" secilip kulaklik cikarildiginda sistem dilsiz
+    kalmaz, makinenin mikrofonuna geri dusulur.
+    """
+    if isinstance(want, bool) or want is None:
+        return None
+    if isinstance(want, int):
+        for i, d in items:
+            if i == want:
+                return i, str(d["name"])
+        return None
+    text = str(want).strip().lower()
+    if not text:
+        return None
+    for i, d in items:                       # once TAM esitlik
+        if str(d["name"]).strip().lower() == text:
+            return i, str(d["name"])
+    for i, d in items:                       # sonra parca esitligi
+        if text in str(d["name"]).lower():
+            return i, str(d["name"])
+    return None
+
+
+def resolve_output(cfg: dict, outputs=None) -> tuple[int | None, str]:
+    """(cihaz_indeksi, ad) — audio.output_device secilmemisse sistem
+    varsayilani kullanilir (None)."""
+    items = _outputs() if outputs is None else outputs
+    hit = pick_device(cfg.get("output_device"), items)
+    if hit:
+        return hit
+    if cfg.get("output_device"):
+        print(f"[audio] çıkış {cfg.get('output_device')!r} yok, "
+              f"sistem varsayılanına dönülüyor")
+    return None, "sistem varsayılanı"
+
+
 def shares_bluetooth_device(input_name: str) -> bool:
     """Mikrofon ve hoparlor AYNI kablosuz cihaz mi?
 
@@ -152,7 +213,7 @@ def output_is_loud(input_name: str = "") -> bool:
     return True
 
 
-def resolve_device(cfg: dict) -> tuple[int | None, str]:
+def resolve_device(cfg: dict, inputs=None) -> tuple[int | None, str]:
     """(cihaz_indeksi, cihaz_adi) dondurur.
 
     config.json > audio.prefer:
@@ -166,14 +227,11 @@ def resolve_device(cfg: dict) -> tuple[int | None, str]:
     audio.device verilmisse (isim parcasi ya da indeks) o her seyin onunde.
     """
     want = cfg.get("device")
-    inputs = _inputs()
-    if isinstance(want, int):
-        name = dict(inputs).get(want, {}).get("name", f"#{want}")
-        return want, name
-    if isinstance(want, str) and want.strip():
-        for i, d in inputs:
-            if want.lower() in d["name"].lower():
-                return i, d["name"]
+    inputs = _inputs() if inputs is None else inputs
+    hit = pick_device(want, inputs)
+    if hit:
+        return hit
+    if want:
         print(f"[audio] {want!r} bulunamadi, otomatik secime dönülüyor")
 
     prefer = cfg.get("prefer", "headset")

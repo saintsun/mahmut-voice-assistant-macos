@@ -277,6 +277,25 @@ panel. Frequently adjusted keys:
 }
 ```
 
+### Device selection
+
+**Settings → Voice & language** has microphone and speaker dropdowns, both
+defaulting to **Automatic**:
+
+| Choice | Behaviour |
+|---|---|
+| Microphone: Automatic | headset when present, built-in otherwise |
+| Microphone: a device | stays on that device even when a headset connects; falls back to automatic if the device disappears |
+| Speaker: Automatic | system output |
+| Speaker: a device | reading plays there; falls back to the system default when missing |
+
+Stored as `audio.device` / `audio.output_device`; a name fragment (`"airpods"`)
+or an index both work. Choosing an explicit **output** forces the render
+playback path, because a `say` process always plays to the system output.
+
+`./test_devices.py` covers these rules against a fake device list, with no
+audio hardware required.
+
 ### Microphone selection
 
 Built-in microphones record considerably quieter than headsets (measured peak

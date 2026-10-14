@@ -129,6 +129,10 @@ class Speaker:
         # O an okunan metin: mikrofon acik kalirsa kendi sesimizi
         # komut sanmayalim diye karsilastiriliyor.
         self.current_text = ""
+        # Kullanici panelden cikis cihazi sectiyse o cihazdan calinir.
+        # None: sistem varsayilani. Secili cihazda `say` yolu kullanilamaz
+        # (surec sistem cikisina calar), bu yuzden render yolu zorunlu olur.
+        self.output_device = None
         self._last_text = ""
         self._last_end = 0.0
         self._pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="tts-render")
@@ -270,7 +274,8 @@ class Speaker:
                     return False                 # beklenmeyen bicim
                 block = 1024
                 stream = sd.OutputStream(samplerate=sr, channels=ch,
-                                         dtype="float32", blocksize=block)
+                                         dtype="float32", blocksize=block,
+                                         device=self.output_device)
                 stream.start()
                 try:
                     while not self._abort.is_set():
@@ -340,7 +345,7 @@ class Speaker:
         # degistirilebiliyor, parcalar arasinda bosluk kalmiyor ve durdurma
         # aninda calisiyor. `say`in kendi ~1 sn gecikmesi zaten var, render
         # belirgin bir ek maliyet getirmiyor.
-        if not self.seamless:
+        if not self.seamless and self.output_device is None:
             for i, (v, r, part) in enumerate(segments):     # sade yol
                 if self._abort.is_set():
                     return

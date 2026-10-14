@@ -597,6 +597,16 @@ background:rgba(0,255,163,.07);border:1px solid rgba(0,255,163,.35)}
     <button onclick="saveName()" data-i18n-title="tt_save" data-i18n="btn_save">Kaydet</button>
   </div>
   <div class="set">
+    <span class="k" data-i18n="k_mic">Mikrofon</span>
+    <select id="stIn" data-i18n-title="tt_mic"
+      onchange="go('set_input_device',this.value).then(r=>{if(r&&r.msg)toast(r.msg,toastKind(r.msg));})"></select>
+  </div>
+  <div class="set">
+    <span class="k" data-i18n="k_spk">Hoparlör</span>
+    <select id="stOut" data-i18n-title="tt_spk"
+      onchange="go('set_output_device',this.value).then(r=>{if(r&&r.msg)toast(r.msg,toastKind(r.msg));})"></select>
+  </div>
+  <div class="set">
     <span class="k" data-i18n="k_lang">Konuşma dili</span>
     <select id="stLang" data-i18n-title="tt_lang" onchange="go('set_language',this.value)">
       <option value="tr" data-i18n="lang_tr">Türkçe</option>
@@ -721,7 +731,7 @@ const I18N={
   tt_resume:"Sistemi çalıştır",
   tt_testmic:"Mikrofonla dene: bas, söyle, sonuç hemen altta çıkar",btn_test:"Dene",
   tt_voicetest:"Seçili sesle örnek bir cümle okur",ph_search:"ara…",noresult:"sonuç yok",btn_goto:"Komutları aç",
-  warn_nocustom:"Henüz kendi yazımlarını eklememişsin. Whisper komutları sık sık yanlış duyar; bir komutu açıp söyleyerek kendi söyleyişini eklersen çok daha az kaçar.",s_cmds:"Komut kalıpları",hint_cmds:"Bir komuta tıkla, kalıplarını gör, sil ya da yenisini ekle.",nophrase:"kalıp yok",ph_newphrase:"yeni kalıp yaz...",btn_cancel:"İptal",speaknow:"Konuş — duyduğumu onayına sunacağım.",heardq:"Duydum:",tt_phrm:"Bu kalıbı kaldır",tt_phlock:"Yerleşik kalıp, dil paketinden geliyor — kaldırılamaz",tt_phadd:"Yazdığın kalıbı bu komuta ekle",tt_capture:"Söyleyerek ekle: bas, konuş, beğenirsen onayla",tt_vrm:"Bu yazımı kelime setinden kaldır",k_target:"Kod uygulaması",s_voice_set:"Ses ve dil",s_system:"Sistem",hint_system:"Kısayol her yerden çalışır; öndeki uygulamaya da gittiği için boşta bir kombinasyon seç. Port doluysa panel sıradaki boş porta geçer.",k_stophk:"Okumayı kes kısayolu",k_port:"Panel portu",tt_port:"Panelin dinlediği port. Yaz, boş mu dolu mu hemen söyler.",tt_portsave:"Portu kaydet — panel yeni adrese taşınır, sayfa kendiliğinden gider",tt_stophk:"Okuma her yerde bu tuşla kesilir. Yazım: cmd+alt+. — değiştirici olarak cmd, alt, shift, ctrl kullanılır. Tuş basımı öndeki uygulamaya da gider, o yüzden boşta bir kombinasyon seç.",tt_target:"Mesajın yazılacağı uygulama. Cevapların okunması yalnızca Claude Code'da çalışır.",soon:"yakında",tt_vbase:"Ana kelime — kaldırılamaz",
+  warn_nocustom:"Henüz kendi yazımlarını eklememişsin. Whisper komutları sık sık yanlış duyar; bir komutu açıp söyleyerek kendi söyleyişini eklersen çok daha az kaçar.",s_cmds:"Komut kalıpları",hint_cmds:"Bir komuta tıkla, kalıplarını gör, sil ya da yenisini ekle.",nophrase:"kalıp yok",ph_newphrase:"yeni kalıp yaz...",btn_cancel:"İptal",speaknow:"Konuş — duyduğumu onayına sunacağım.",heardq:"Duydum:",tt_phrm:"Bu kalıbı kaldır",tt_phlock:"Yerleşik kalıp, dil paketinden geliyor — kaldırılamaz",tt_phadd:"Yazdığın kalıbı bu komuta ekle",tt_capture:"Söyleyerek ekle: bas, konuş, beğenirsen onayla",tt_vrm:"Bu yazımı kelime setinden kaldır",k_target:"Kod uygulaması",s_voice_set:"Ses ve dil",k_mic:"Mikrofon",k_spk:"Hoparlör",dev_auto:"Otomatik",dev_auto_in:"Otomatik (kulaklık varsa kulaklık)",dev_auto_out:"Otomatik (sistem çıkışı)",tt_mic:"Dinlemenin yapılacağı mikrofon. Otomatik: kulaklık varsa kulaklık, yoksa dahili. Belirli bir cihaz seçersen kulaklık takılsa bile o kalır; seçtiğin cihaz yoksa dahiliye düşer.",tt_spk:"Okumanın çalacağı cihaz. Otomatik: sistem çıkışı.",s_system:"Sistem",hint_system:"Kısayol her yerden çalışır; öndeki uygulamaya da gittiği için boşta bir kombinasyon seç. Port doluysa panel sıradaki boş porta geçer.",k_stophk:"Okumayı kes kısayolu",k_port:"Panel portu",tt_port:"Panelin dinlediği port. Yaz, boş mu dolu mu hemen söyler.",tt_portsave:"Portu kaydet — panel yeni adrese taşınır, sayfa kendiliğinden gider",tt_stophk:"Okuma her yerde bu tuşla kesilir. Yazım: cmd+alt+. — değiştirici olarak cmd, alt, shift, ctrl kullanılır. Tuş basımı öndeki uygulamaya da gider, o yüzden boşta bir kombinasyon seç.",tt_target:"Mesajın yazılacağı uygulama. Cevapların okunması yalnızca Claude Code'da çalışır.",soon:"yakında",tt_vbase:"Ana kelime — kaldırılamaz",
   tt_cut:"O anki okumayı ve kuyruğu durdurur — sesle: “mahmut kes”",
   tt_start:"Dinlemeyi açar — sesle: “mahmut başla”",
   tt_stop:"Dinlemeyi durdurur, mikrofon açık kalır — sesle: “mahmut dur”",
@@ -780,7 +790,7 @@ const I18N={
   tt_resume:"Resume the system",
   tt_testmic:"Try by voice: click, speak, the result shows below",btn_test:"Test",
   tt_voicetest:"Reads a sample sentence with the selected voice",ph_search:"search…",noresult:"no results",btn_goto:"Open commands",
-  warn_nocustom:"You have not added your own spellings yet. Whisper often mishears commands; open a command and add how you actually say it, and far fewer will slip.",s_cmds:"Command patterns",hint_cmds:"Click a command to see its patterns, remove or add new ones.",nophrase:"no patterns",ph_newphrase:"type a new pattern...",btn_cancel:"Cancel",speaknow:"Speak — I will show you what I heard.",heardq:"Heard:",tt_phrm:"Remove this pattern",tt_phlock:"Built-in pattern from the language pack, cannot be removed",tt_phadd:"Add the typed pattern to this command",tt_capture:"Add by speaking: click, talk, confirm if you like it",tt_vrm:"Remove this spelling from the word set",k_target:"Coding app",s_voice_set:"Voice & language",s_system:"System",hint_system:"The shortcut works everywhere; it also reaches the front app, so pick an unused combo. If the port is taken the panel moves to the next free one.",k_stophk:"Stop reading shortcut",k_port:"Panel port",tt_port:"The port the panel listens on. Type one and it tells you if it is free.",tt_portsave:"Save the port - the panel moves and this page follows",tt_stophk:"Stops reading anywhere. Format: cmd+alt+. — modifiers are cmd, alt, shift, ctrl. The keystroke also reaches the front app, so pick an unused combo.",tt_target:"Where messages are typed. Reading replies aloud only works with Claude Code.",soon:"soon",tt_vbase:"Base word - cannot be removed",
+  warn_nocustom:"You have not added your own spellings yet. Whisper often mishears commands; open a command and add how you actually say it, and far fewer will slip.",s_cmds:"Command patterns",hint_cmds:"Click a command to see its patterns, remove or add new ones.",nophrase:"no patterns",ph_newphrase:"type a new pattern...",btn_cancel:"Cancel",speaknow:"Speak — I will show you what I heard.",heardq:"Heard:",tt_phrm:"Remove this pattern",tt_phlock:"Built-in pattern from the language pack, cannot be removed",tt_phadd:"Add the typed pattern to this command",tt_capture:"Add by speaking: click, talk, confirm if you like it",tt_vrm:"Remove this spelling from the word set",k_target:"Coding app",s_voice_set:"Voice & language",k_mic:"Microphone",k_spk:"Speaker",dev_auto:"Automatic",dev_auto_in:"Automatic (headset when present)",dev_auto_out:"Automatic (system output)",tt_mic:"Microphone used for listening. Automatic prefers a headset and falls back to the built-in mic. Pick a device and it stays even when a headset connects; if that device is gone it falls back.",tt_spk:"Where reading is played. Automatic uses the system output.",s_system:"System",hint_system:"The shortcut works everywhere; it also reaches the front app, so pick an unused combo. If the port is taken the panel moves to the next free one.",k_stophk:"Stop reading shortcut",k_port:"Panel port",tt_port:"The port the panel listens on. Type one and it tells you if it is free.",tt_portsave:"Save the port - the panel moves and this page follows",tt_stophk:"Stops reading anywhere. Format: cmd+alt+. — modifiers are cmd, alt, shift, ctrl. The keystroke also reaches the front app, so pick an unused combo.",tt_target:"Where messages are typed. Reading replies aloud only works with Claude Code.",soon:"soon",tt_vbase:"Base word - cannot be removed",
   tt_cut:"Stops the current reading and the queue — say “mahmut cut”",
   tt_start:"Starts listening — say “mahmut start”",
   tt_stop:"Stops listening, mic stays on — say “mahmut stop”",
@@ -1178,6 +1188,21 @@ function saveHk(){
   go('set_stop_hotkey', el.value.trim()).then(r=>{ if(r&&r.msg) toast(r.msg, toastKind(r.msg)); });
 }
 function setTarget(v){ go('set_target',v).then(r=>{ if(r&&r.msg) toast(r.msg, toastKind(r.msg)); }); }
+function renderDevices(d){
+  const dev=d.devices||{inputs:[],outputs:[]};
+  const fill=(id, rows, cur, autoKey, active)=>{
+    const el=document.getElementById(id); if(!el) return;
+    const sig=rows.map(x=>x.name).join("|")+"/"+cur+"/"+(active||"");
+    if(el.dataset.sig===sig) return;        // her tikta yeniden cizme
+    el.dataset.sig=sig;
+    const auto=t(autoKey)+(active?" — "+active:"");
+    el.innerHTML=`<option value=""${cur?"":" selected"}>${esc(auto)}</option>`
+      + rows.map(x=>`<option value="${esc(x.name)}"${x.name===cur?" selected":""}>`
+                    + esc(x.name)+`</option>`).join("");
+  };
+  fill("stIn", dev.inputs||[], d.in_device||"", "dev_auto_in", d.in_active||"");
+  fill("stOut", dev.outputs||[], d.out_device||"", "dev_auto_out", "");
+}
 function renderTargets(d){
   const el=document.getElementById("stTarget"); if(!el) return;
   const list=d.targets||[];
@@ -1220,6 +1245,7 @@ async function tick(){
   if(d.boot){ if(BOOT===null) BOOT=d.boot; else if(BOOT!==d.boot){ location.reload(); return; } }
   HIST=d.history||[]; CMDS=d.commands||[];
   renderTargets(d);
+  renderDevices(d);
   const pp=document.getElementById("stPort");
   if(pp && document.activeElement!==pp && d.panel_port)
     pp.placeholder=String(d.panel_port);
