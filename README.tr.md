@@ -212,6 +212,18 @@ Güncelleme güvenlidir: ayarların, listen ve öğrettiğin yazımlar korunur.
 
 ---
 
+## Bu branch: Gather entegrasyonu
+
+`main` hiçbir uygulamaya özel kısayol taşımaz. Bu branch, Gather'in mikrofon
+kısayolunu (⇧⌘A) sesle açıp kapatan kaydı varsayılanlara ekler:
+
+> 🗣 *"Mahmut mikrofon aç"* → Gather öne alınır, ⇧⌘A gönderilir, odak sana
+> iade edilir, *"Açıldı."* denir.
+
+Gather mikrofon durumunu dışarıya vermediği için gerçek durum okunamıyor; tuş
+bir anahtar olduğundan sesli teyit **söylediğin komuta** göre veriliyor. Kendi
+kısayolunu eklemek için `config.json > hotkeys` yeterli.
+
 ## Ücret ve gizlilik
 
 - **Hiçbir ücret yok.** API anahtarı, hesap, abonelik gerekmiyor.

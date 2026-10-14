@@ -314,7 +314,37 @@ DEFAULTS = {
     # the same key. If the app does not publish its microphone state, the real
     # state cannot be read, so the spoken confirmation follows the command YOU
     # said. Each group carries its own reply and panel label.
-    "hotkeys": [],
+    "hotkeys": [
+        {
+            "name": "Gather mikrofon",
+            "bundle_id": "com.gather.GatherV2",
+            "key": "a",
+            "modifiers": ["shift", "command"],
+            # Gather's microphone shortcut (Shift+Cmd+A) is a TOGGLE: "on" and
+            # "off" press the same key. Gather does not publish its microphone
+            # state, so the spoken confirmation follows the command YOU said.
+            "actions": [
+                {
+                    "phrases": [
+                        "mahmut mikrofon ac", "mahmut mikrofonu ac",
+                        "mikrofon ac mahmut", "mikrofonu ac mahmut",
+                        "mahmut sesi ac", "mahmut mikrofon acc",
+                    ],
+                    "reply": "Açıldı.",
+                    "label": "Mikrofon aç",
+                },
+                {
+                    "phrases": [
+                        "mahmut mikrofon kapat", "mahmut mikrofonu kapat",
+                        "mikrofon kapat mahmut", "mikrofonu kapat mahmut",
+                        "mahmut sesi kapat", "mahmut mikrofonu kapa",
+                    ],
+                    "reply": "Kapandı.",
+                    "label": "Mikrofon kapat",
+                },
+            ],
+        },
+    ],
 
     "ui": {
         # Which state to start in:
