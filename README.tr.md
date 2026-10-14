@@ -7,7 +7,7 @@
 **Claude Code ve GPT Codex ile konuşarak çalış.**
 
 Konuştuğunu yazıya çevirip uygulamaya yazar, gelen cevapları sesli okur.
-Her şey bilgisayarında çalışır — ses hiçbir yere gönderilmez.
+Her şey bilgisayarında çalışır, ses hiçbir yere gönderilmez.
 
 ![platform](https://img.shields.io/badge/platform-macOS%2013%2B-111?style=flat-square)
 ![chip](https://img.shields.io/badge/i%C5%9Flemci-Apple%20Silicon-111?style=flat-square)
@@ -16,13 +16,13 @@ Her şey bilgisayarında çalışır — ses hiçbir yere gönderilmez.
 
 *[English](README.md) · **Türkçe***
 
-*v1.0.0 — [değişiklikler](CHANGELOG.md)*
+*v1.0.0, [değişiklikler](CHANGELOG.md)*
 
 </div>
 
 ---
 
-## Kurulum — tek komut
+## Kurulum: tek komut
 
 Terminal'i aç (⌘ + Boşluk → "Terminal" yaz → Enter), aşağıdaki satırı
 kopyalayıp yapıştır ve Enter'a bas:
@@ -37,7 +37,7 @@ Hepsi bu. Komut gereken her şeyi kendisi indirir ve kurar:
 |---|---|
 | Proje dosyaları | `~/Mahmut` klasörüne iner (git gerekmez) |
 | Homebrew, PortAudio, FFmpeg, Python | eksikse kurulur |
-| Konuşma tanıma modeli | 1.5 GB — en uzun adım bu |
+| Konuşma tanıma modeli | 1.5 GB, en uzun adım bu |
 | Uygulama | derlenir ve başlatılır |
 
 Toplam 10-15 dakika sürer, çoğu indirme beklemesi. Sorarsa **E** yazıp Enter'a
@@ -60,9 +60,9 @@ Açılmazsa dosyaya sağ tık → **Aç** → yine **Aç**.
 
 macOS iki izin soracak, ikisi de şart.
 
-**Mikrofon** — ilk konuşmada çıkan pencerede **İzin Ver**.
+**Mikrofon:** ilk konuşmada çıkan pencerede **İzin Ver**.
 
-**Erişilebilirlik** — yazdığı metni Claude'un penceresine yapıştırabilmesi
+**Erişilebilirlik:** yazdığı metni Claude'un penceresine yapıştırabilmesi
 için. Kurulum sonunda ayar penceresi kendiliğinden açılır; açılmazsa:
 
 ```bash
@@ -80,9 +80,9 @@ cd ~/Mahmut && ./stop.sh && open Mahmut.app
 
 Claude Code'u aç, bir sohbete gir, sonra sırayla:
 
-1. **"Mahmut başla"** — dinlemeye başlar
+1. **"Mahmut başla"** diyince dinlemeye başlar
 2. Ne istiyorsan söyle: *"Şu fonksiyondaki hatayı düzelt, testleri de ekle"*
-3. **"tamam Mahmut"** — mesaj gider
+3. **"tamam Mahmut"** diyince mesaj gider
 
 Cevap geldiğinde sesli okur. Kesmek için **"Mahmut kes"** ya da **⌥⌘K**.
 
@@ -91,7 +91,7 @@ Cevap geldiğinde sesli okur. Kesmek için **"Mahmut kes"** ya da **⌥⌘K**.
 ## Ne yapıyor?
 
 - **Sen konuşuyorsun, o yazıyor.** Başka bir pencerede çalışırken bile.
-  Mesajı sen "tamam Mahmut" deyince gönderiyor — sustuğun an değil.
+  Mesajı sen "tamam Mahmut" deyince gönderiyor, sustuğun an değil.
 - **Cevapları sesli okuyor.** Kod bloklarını atlayarak, hangi konuşmadan
   geldiğini söyleyerek.
 - **Birden çok konuşmayı takip ediyor.** "Kunaz Reklam seç Mahmut" deyince
@@ -164,7 +164,7 @@ yanlış duymayı komuta ekleyebilirsin.
 Panel ikisini birden gösterir: seçili olan etkin, diğeri altta soluk durur.
 
 **Codex seçtiğinde:** konuşmalar proje adıyla listelenir. Codex'te "Kunaz"
-projesi altındaki "Reklam" sohbeti, listede **"Kunaz Reklam"** olarak görünür —
+projesi altındaki "Reklam" sohbeti, listede **"Kunaz Reklam"** olarak görünür;
 sesle seçerken de böyle söylersin. Varsayılan listeye sadece projelerin altındaki
 sohbetler girer; "Recents" altındakileri istersen elle eklersin.
 
@@ -265,6 +265,38 @@ cd ~/Mahmut && ./install_autostart.sh
 
 ---
 
+## Kaldırma
+
+Tek komut yeter:
+
+```bash
+cd ~/Mahmut && ./uninstall.sh
+```
+
+Ya da klasördeki **Kaldir.command** dosyasına çift tıkla.
+
+| Sormadan silinir | Sana sorulur | Hiç dokunulmaz |
+|---|---|---|
+| Mahmut.app, Python ortamı, geçici dosyalar | kendi komut kalıplarının olduğu `config.json` | Homebrew ve paketleri (portaudio, ffmpeg, python) |
+| Açılışta başlatma (launch agent) | konuşma modeli (~1.5 GB yer açar) | Claude Code / Codex ve konuşmaların |
+| Mikrofon ve Erişilebilirlik kayıtları | proje klasörünün kendisi | |
+
+Hiç soru sormadan:
+
+```bash
+./uninstall.sh --all     # model ve klasör dahil her şey
+./uninstall.sh --keep    # sadece uygulama; ayarlar ve model kalsın
+```
+
+Homebrew paketlerine dokunulmuyor, çünkü başka programlar da kullanıyor.
+Bilgisayarında başka hiçbir şey kullanmıyorsa:
+
+```bash
+brew uninstall portaudio ffmpeg
+```
+
+---
+
 ## Geliştiriciler için
 
 Bu bölümden sonrası teknik: nasıl çalıştığı, ölçülen davranışlar ve
@@ -338,7 +370,7 @@ geçerse gerçek komut da yutuluyordu. Koruma okuma bittikten sonra 8 sn daha
 sürüyor, çünkü son ses parçası ~1 sn gecikmeli yazıya çevriliyor.
 
 **Okuma cızırtılıydı.** Çal-dinle ile elendi: `afplay` her biçimde temiz
-çalıyordu, cızırtı yalnızca kendi blok blok çalma yolumuzda vardı — Whisper
+çalıyordu, cızırtı yalnızca kendi blok blok çalma yolumuzda vardı. Whisper
 çalışırken o döngü altta kalıp tampon açlığı yaratıyor. Ses %100'ken artık
 `afplay` kullanılıyor; blok yolu sadece canlı ses seviyesi değişimi için.
 Ayrıca aynı Bluetooth cihazı hem giriş hem çıkış olarak seçilince PortAudio
@@ -361,7 +393,7 @@ sonundaki nokta hâlâ ayırıyor.
 
 **`codesign … | grep -q` yanıltıyor.** `grep -q` eşleşince erken çıkıyor,
 `codesign` SIGPIPE ile ölüyor ve `set -o pipefail` yüzünden pipeline başarısız
-sayılıyor — imza doğruyken "ad-hoc değil" deyip siliyordu.
+sayılıyor: imza doğruyken "ad-hoc değil" deyip siliyordu.
 
 **`say` ebeveyninden sonra yaşıyor.** Çalmayı bir alt sürece yaptırıyor, sadece
 ebeveyni öldürmek sesi kesmiyordu. Artık kendi süreç grubunda çalışıyor ve grup

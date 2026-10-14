@@ -7,7 +7,7 @@
 **Work with Claude Code and GPT Codex by talking.**
 
 It turns your speech into text, types it into the app, and reads the replies
-back out loud. Everything runs on your machine — no audio ever leaves it.
+back out loud. Everything runs on your machine, and no audio ever leaves it.
 
 ![platform](https://img.shields.io/badge/platform-macOS%2013%2B-111?style=flat-square)
 ![chip](https://img.shields.io/badge/chip-Apple%20Silicon-111?style=flat-square)
@@ -16,13 +16,13 @@ back out loud. Everything runs on your machine — no audio ever leaves it.
 
 ***English** · [Türkçe](README.tr.md)*
 
-*v1.0.0 — [changelog](CHANGELOG.md)*
+*v1.0.0, [changelog](CHANGELOG.md)*
 
 </div>
 
 ---
 
-## Install — one command
+## Install: one command
 
 Open Terminal (⌘ + Space → type "Terminal" → Enter), paste the line below and
 press Enter:
@@ -37,7 +37,7 @@ That is all. The command downloads and installs everything it needs:
 |---|---|
 | Project files | into `~/Mahmut` (git is not required) |
 | Homebrew, PortAudio, FFmpeg, Python | installed if missing |
-| Speech recognition model | 1.5 GB — the longest step |
+| Speech recognition model | 1.5 GB, the longest step |
 | The app | built and launched |
 
 It takes 10–15 minutes, mostly downloading. Answer **E** (yes) if it asks.
@@ -58,9 +58,9 @@ folder. If it will not open, right-click the file → **Open** → **Open** agai
 
 macOS asks for two permissions; both are required.
 
-**Microphone** — click **Allow** the first time you speak.
+**Microphone:** click **Allow** the first time you speak.
 
-**Accessibility** — needed to paste the text into the app's window. The
+**Accessibility:** needed to paste the text into the app's window. The
 settings pane opens by itself at the end of the install; if it does not:
 
 ```bash
@@ -78,9 +78,9 @@ cd ~/Mahmut && ./stop.sh && open Mahmut.app
 
 Open Claude Code, enter a conversation, then:
 
-1. Say **"Mahmut start"** — it starts listening
+1. Say **"Mahmut start"** and it starts listening
 2. Say what you want: *"Fix the bug in that function and add tests"*
-3. Say **"okay Mahmut"** — the message is sent
+3. Say **"okay Mahmut"** and the message is sent
 
 It reads the reply aloud. To stop the reading say **"Mahmut quiet"** or press
 **⌥⌘K**.
@@ -93,11 +93,11 @@ It reads the reply aloud. To stop the reading say **"Mahmut quiet"** or press
 
 ## What it does
 
-- **You talk, it types** — even while you work in another window. The message
+- **You talk, it types,** even while you work in another window. The message
   is sent when you say the sign-off phrase, never when you go quiet.
 - **It reads replies aloud**, skipping code blocks and announcing which
   conversation they came from.
-- **It follows several conversations** — "select Admin Panel Mahmut" switches
+- **It follows several conversations.** "select Admin Panel Mahmut" switches
   to one, "reply Mahmut" writes back to whoever spoke last.
 - **Free and fully local.** No API key, no account, no subscription. After the
   install it does not even need an internet connection.
@@ -125,7 +125,7 @@ Do this for the five commands you use most (start, stop, quiet, send, reply).
 It takes five minutes and the hit rate improves noticeably.
 
 The same screen is where you add your own phrasings. Want "Howdy Mahmut" to
-wake it up? Open the **Wake** command and add it — by typing, or by saying it.
+wake it up? Open the **Wake** command and add it, by typing or by saying it.
 
 ---
 
@@ -174,7 +174,7 @@ and inert.
 
 **With Codex selected**, conversations are listed under their project name. A
 thread called "Reklam" inside the project "Kunaz" appears as **"Kunaz
-Reklam"** — and that is how you say it out loud. Only project conversations go
+Reklam"**, and that is how you say it out loud. Only project conversations go
 into the default list; loose ones under "Recents" can be added by hand.
 
 Each app keeps its own list and settings, so switching back and forth breaks
@@ -198,7 +198,7 @@ cd ~/Mahmut && ./selftest.py
 ```
 
 **It does not read replies.** Is **Control → Reading** switched on? That
-conversation may also be muted — check the speaker icon in **Open
+conversation may also be muted, so check the speaker icon in **Open
 conversations**.
 
 **The sound crackles.** Set the volume to 100%; below that a different playback
@@ -260,6 +260,38 @@ cd ~/Mahmut && ./install_autostart.sh
 
 ---
 
+## Uninstall
+
+One command removes it:
+
+```bash
+cd ~/Mahmut && ./uninstall.sh
+```
+
+Or double-click **Kaldir.command** in the folder.
+
+| Removed without asking | You are asked | Never touched |
+|---|---|---|
+| Mahmut.app, the Python environment, temp files | `config.json` with your own command patterns | Homebrew and its packages (portaudio, ffmpeg, python) |
+| Start at login (the launch agent) | the speech model (frees ~1.5 GB) | Claude Code / Codex and your conversations |
+| Microphone and Accessibility entries | the project folder itself | |
+
+Without any questions:
+
+```bash
+./uninstall.sh --all     # everything, including the model and the folder
+./uninstall.sh --keep    # only the app; settings and model stay
+```
+
+Homebrew packages are left alone because other programs use them. If nothing
+else on your machine needs them:
+
+```bash
+brew uninstall portaudio ffmpeg
+```
+
+---
+
 ## For developers
 
 Everything below is technical: how it works, what was measured, and the traps
@@ -282,8 +314,8 @@ mic → energy VAD → MLX Whisper → glossary repair → buffer
 - **Matching** folds accents to ASCII, collapses repeated letters, tolerates
   one wrong letter from four letters up, and splits merged words. Spellings
   containing digits get no tolerance (`5inci` ≠ `1inci`).
-- **Typing** writes to the clipboard, brings the target forward — *verified*
-  through `CGWindowList`, because `NSRunningApplication` values go stale —
+- **Typing** writes to the clipboard, brings the target forward, *verified*
+  through `CGWindowList`, because `NSRunningApplication` values go stale,
   sends ⌘V + Enter and hands focus back.
 - **Reading** strips code blocks, tables and paths, splits the text into
   language runs, renders them in parallel and concatenates with ffmpeg.
@@ -334,7 +366,7 @@ active for 8 s after playback, because the last audio chunk is transcribed
 about a second late.
 
 **Playback crackled.** Eliminated by playing and listening: `afplay` was clean
-in every form, and the crackle only appeared in our own block-by-block path —
+in every form, and the crackle only appeared in our own block-by-block path,
 that loop starves while Whisper runs. At full volume `afplay` is used now; the
 block path is only for live volume changes. Also, selecting the same Bluetooth
 device for both input and output made PortAudio raise `-9986`; when the chosen
@@ -354,7 +386,7 @@ Word-internal periods and apostrophes no longer split tokens, while
 sentence-ending punctuation still does.
 
 **`codesign … | grep -q` lies.** `grep -q` exits early, `codesign` dies of
-SIGPIPE and `set -o pipefail` reports failure — the check called a valid
+SIGPIPE and `set -o pipefail` reports failure, so the check called a valid
 ad-hoc signature invalid and stripped it.
 
 **`say` outlives its parent.** It hands playback to a child process, so killing
