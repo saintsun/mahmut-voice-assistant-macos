@@ -199,7 +199,7 @@ class Injector:
         try:
             if not already and not self._bring_to_front(target):
                 # ONEMLI: one gelmediyse tusu GONDERME. Aksi halde kisayol
-                # o an onde olan uygulamaya duser — Gather yerine Chrome'a
+                # o an onde olan uygulamaya duser — hedef yerine baska bir pencereye
                 # Shift+Cmd+A gidip sekme arama paneli aciliyordu.
                 return False, "uygulama öne getirilemedi"
             # SADE yontem: sadece olay bayragi. Daha once degistirici
@@ -257,7 +257,7 @@ class Injector:
         """System Events uzerinden one getirir.
 
         NSRunningApplication.activate(...) bazi Electron uygulamalarinda
-        (Gather) hicbir sey yapmiyor; System Events farkli bir yoldan
+        (Electron tabanlilarda) hicbir sey yapmiyor; System Events farkli bir yoldan
         istedigi icin orada calisabiliyor. Ilk kullanimda macOS bir kerelik
         "Otomasyon" izni sorar.
         """

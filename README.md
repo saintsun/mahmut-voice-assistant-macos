@@ -1,830 +1,457 @@
+<div align="center">
+
+<img src="assets/icon.png" width="128" alt="Mahmut">
+
 # Mahmut: Voice Assistant
 
-Claude Code ile **sesli** konuşmak için macOS (Apple Silicon) menubar uygulaması.
+**Talk to Claude Code. Hear it answer.**
 
-> Uygulamanın adı **Mahmut: Voice Assistant** — menü çubuğunda ve Dock'ta kısa
-> haliyle "Mahmut", uyandırma kelimesiyle aynı. Markalı bir ad kullanılmıyor,
-> depo adında "Claude" geçmesi gerekmez.
+A macOS menu bar app that turns speech into messages for Claude Code and reads
+replies back aloud — code blocks excluded. Everything runs on-device.
 
-Arka planda çalışır: sen başka bir pencerede gezinirken konuşursun, telsiz usulü
-"tamam mahmut" deyince mesaj gider. Gelen cevaplar — **kod blokları hariç** —
-hangi konuşmadan geldiği söylenerek sesli okunur.
+![platform](https://img.shields.io/badge/platform-macOS%2013%2B-111?style=flat-square)
+![chip](https://img.shields.io/badge/chip-Apple%20Silicon-111?style=flat-square)
+![python](https://img.shields.io/badge/python-3.11%20%E2%80%93%203.13-111?style=flat-square)
+![license](https://img.shields.io/badge/license-MIT-111?style=flat-square)
 
-Her şey yerelde çalışır; ses hiçbir yere gönderilmez. İmza/notarization yok.
+***English** · [Türkçe](README.tr.md)*
 
-> **Bağımsız bir projedir.** Anthropic ile bir ilişkisi, ortaklığı veya onayı
-> yoktur. "Claude" ve "Claude Code" Anthropic'in markalarıdır; burada yalnızca
-> hangi uygulamayla çalıştığını belirtmek için geçer.
+</div>
 
-Lisans: [MIT](LICENSE).
+---
 
-
-## Güvenlik
-
-**Hiçbir anahtar, token veya kimlik bilgisi yok.** Mahmut Claude'un API'sine
-bağlanmaz; mesajı tıpkı senin gibi *pencereye yazar* (pano + ⌘V + Enter).
-Dolayısıyla depoda ya da `config.json`'da API anahtarı bulunmaz, hesabına
-erişemez, oturum çerezi okumaz.
-
-**Dışarı hiçbir şey gitmez.** Uygulama kodunda tek bir ağ çağrısı yok; ses
-Whisper ile cihazda yazıya çevrilir. Tek indirme, kurulumda modelin
-Hugging Face'ten çekilmesi.
-
-**Neye erişiyor:**
-
-| | ne için |
-|---|---|
-| Mikrofon | konuşmanı yazıya çevirmek |
-| Erişilebilirlik | mesajı Claude penceresine yazmak, uygulama kısayolu göndermek |
-| `~/.claude/projects/**.jsonl` | gelen cevapları okumak (yalnızca okuma) |
-| `~/.claude/sessions/*.json` | açık konuşmaların adı/kimliği |
-
-Erişilebilirlik izni güçlüdür: bu izinle bir uygulama her yere tuş gönderebilir.
-Kodun tamamı açık; `inject.py` bu iznin kullanıldığı tek yerdir.
-
-**Yerel panel.** `127.0.0.1`'e bağlanır, dışarıdan erişilemez. Yine de
-tarayıcıdaki herhangi bir site `text/plain` ile preflight'sız POST atıp komut
-çalıştırabilirdi; bu yüzden yabancı `Origin` başlığı olan istekler **403** ile
-reddedilir (kendi sayfası ve terminal/curl çalışır).
-
-**Diskte kalan veri** — hepsi `.gitignore`'da, repoya gitmez:
-`config.json` (ayarlar + konuşma adları), `.state.json` (son duyulanlar,
-200 satırlık arşiv), `.app.log`, `.muted.json`.
-
-**Kod tarafı:** `shell=True`, `eval`, `exec`, `pickle` kullanılmıyor; tüm
-`subprocess` çağrıları liste argümanlı. AppleScript'e yalnızca sayısal `pid`
-geçer. `claude://` deep link'lerindeki oturum kimliği biçim olarak doğrulanır
-(`[A-Za-z0-9_-]{1,64}`), böylece `~/.claude` altına bozuk bir değer yazılsa
-bile `open` beklenmedik bir URL şemasını açamaz.
-
-## Kurulum (başka bir Mac'e)
+## Quickstart
 
 ```bash
-git clone <repo-adresi> mahmut && cd mahmut
+git clone https://github.com/saintsun/mahmut-voice-assistant-macos mahmut
+cd mahmut
+./setup.sh
 ```
 
-Sonra Finder'da klasörü aç ve **`Kur.command`** dosyasına çift tıkla. Terminal
-açılır, kurulum kendi kendine ilerler:
+Or skip the terminal entirely: open the folder in Finder and double-click
+**`Kur.command`**.
 
-1. Homebrew yoksa sorar ve kurar
-2. `portaudio` + `ffmpeg`, ardından `python@3.13`
-3. sanal ortam + python paketleri (`requirements.txt`)
-4. Whisper modeli (~1.5 GB, ilk sefer)
-5. `Mahmut.app` derlenir ve başlatılır
-6. Erişilebilirlik ayar penceresi açılır — izni verirsin
-7. "Açılışta otomatik başlasın mı?" diye sorar
+The installer handles Homebrew, PortAudio, FFmpeg, Python, the virtualenv, the
+Whisper model and the app bundle, then opens the Accessibility settings pane so
+you can grant permission. When it finishes:
 
-Gereken: **Apple Silicon** (M serisi) + macOS 13+. Kurulum bittiğinde
-`./selftest.py` her şeyi tek tek kontrol eder.
+```bash
+open Mahmut.app      # starts in the menu bar
+./selftest.py        # verifies permissions, microphone, model and voice
+```
 
-### İmza / sertifika
+Then say **"Mahmut start"** and begin talking.
 
-Hiçbir Apple Developer hesabı, Developer ID veya kurum sertifikası
-kullanılmaz; keychain'e dokunulmaz. Uygulama **ad-hoc** imzalanır
-(`codesign --sign -`, `TeamIdentifier=not set`) ve bunu `build_app.sh` her
-derlemeden sonra doğrular — imza ad-hoc değilse imzayı kaldırır.
+---
 
-Uygulama indirilmiş bir ikili değil, **senin makinende derlenir**; bu yüzden
-"geliştirici doğrulanamadı" uyarısı çıkmaz. ZIP olarak indirdiysen macOS
-karantina bayrağı koyabilir: `Kur.command` ilk iş onu temizler, ama ilk çift
-tıklamada engellenirse dosyaya **sağ tık > Aç** de (`git clone` ile indirirsen
-bu adım hiç gerekmez).
+## How a session looks
 
-### Kurulumu doğrulama
+```
+🎙  "Let's refactor the payment service. The retry logic duplicates
+     the backoff from the queue consumer — extract it into a shared
+     helper and add a test for the exponential case. Okay Mahmut."
 
-Kurulum, projenin temiz bir kopyasında (venv ve `config.json` olmadan) baştan
-sona çalıştırılarak test edildi: paketler, model, bundle derleme, başlatma.
-İki tuzak çıktı ve ikisi de düzeltildi:
+    → typed into Claude Code and sent
 
-- `codesign -dv ... | grep -q` **yanıltıcı**: `grep -q` eşleşince erken çıkıyor,
-  `codesign` SIGPIPE alıyor ve `set -o pipefail` yüzünden pipeline başarısız
-  sayılıyor. İmza doğruyken "ad-hoc değil" deyip imzayı siliyordu. Çıktı önce
-  değişkene alınıyor.
-- `codesign -dv --verbose=2` çıktısında `Signature=adhoc` satırı güvenilir
-  değil; kontrol `--verbose=4` ile yapılıyor.
+🔊  "Message from Payments API."
+🔊  "I extracted the backoff into retry.py and added three test cases.
+     Code block."
 
-### Güncelleme
+🎙  "Reply Mahmut. Also cover the jitter path. Okay Mahmut."
+
+    → sent to Payments API, which is brought to the front automatically
+```
+
+Nothing is ever sent on silence. You talk for as long as you like and close
+with a sign-off phrase, so pauses and corrections never leak into the message.
+
+---
+
+## Features
+
+**Input**
+
+- Background listening while you work in any other window
+- On-device transcription with MLX Whisper (`whisper-large-v3-turbo`)
+- Send only on an explicit sign-off phrase — *"okay Mahmut"*
+- Mixed-language speech: a sentence in one language with technical terms in
+  another is transcribed and read back correctly
+- Voice command sets you can extend by speaking, not by editing code
+
+**Output**
+
+- Replies read aloud with code blocks, tables, paths and markdown stripped
+- Each reply announced by conversation: *"Message from Payments API."*
+- Parallel replies queue instead of overlapping
+- Scheduled-task output is never read
+
+**Conversations**
+
+- All live Claude Code sessions are watched at once
+- *"select Admin Panel Mahmut"* switches conversations; closed ones are
+  reopened through a deep link
+- *"reply Mahmut"* targets whichever conversation last spoke
+- Numbered favourites: *"list Mahmut"* → *"first one Mahmut"*
+
+**Control**
+
+- Local web panel: switches, volume, 200-row transcript archive, favourites,
+  command editing, settings — localized in English and Turkish
+- Global shortcut (⌥⌘K) to stop reading from anywhere
+- Voice-triggered keyboard shortcuts for other applications
+- Optional start at login
+
+---
+
+## Requirements
+
+| | |
+|---|---|
+| Hardware | Apple Silicon (M-series) — MLX runs on the GPU |
+| OS | macOS 13 or newer |
+| App | Claude Code desktop app |
+| Disk | ~1.5 GB for the Whisper model |
+
+Installed automatically if missing: Homebrew, `portaudio`, `ffmpeg`,
+`python@3.13`.
+
+---
+
+## Installation
+
+### 1. Get the code
+
+```bash
+git clone https://github.com/saintsun/mahmut-voice-assistant-macos mahmut
+cd mahmut
+```
+
+### 2. Run the installer
+
+Double-click **`Kur.command`** in Finder, or run `./setup.sh`. It will:
+
+1. install Homebrew if missing (with your confirmation)
+2. install `portaudio`, `ffmpeg` and `python@3.13`
+3. create the virtualenv and install `requirements.txt`
+4. download the Whisper model (~1.5 GB, first run only)
+5. build and launch `Mahmut.app`
+6. open the Accessibility settings pane
+7. offer to install the start-at-login agent
+
+For automation, `MAHMUT_UNATTENDED=1 ./setup.sh` skips all prompts and windows.
+
+### 3. Grant permissions
+
+Two permissions are required, both under **System Settings → Privacy &
+Security**:
+
+- **Microphone** — requested on first launch
+- **Accessibility** — required to type into another application. If no prompt
+  appears, add `Mahmut.app` manually with `+`.
+
+### Updating
 
 ```bash
 git pull && ./setup.sh
 ```
 
-`setup.sh` yeniden çalıştırmak güvenli: kurulu paketlere dokunmaz, `config.json`
-korunur (eksik ayarlar eklenir), bundle gerçekten değişmediyse yeniden
-derlenmez — yani **izinler sıfırlanmaz**.
+Re-running the installer is safe: installed packages are left alone,
+`config.json` is preserved (only missing keys are added), and the bundle is
+rebuilt only when it actually changed — so permissions are not reset.
+
+### Code signing
+
+No Apple Developer account, Developer ID or organization certificate is used,
+and the keychain is never touched. The app is ad-hoc signed
+(`codesign --sign -`, `TeamIdentifier=not set`), and `build_app.sh` verifies
+this after every build, stripping the signature if it is not ad-hoc.
+
+The app is compiled on your machine rather than downloaded, so Gatekeeper's
+"unidentified developer" dialog never appears. If you downloaded a ZIP instead
+of cloning, macOS may set the quarantine flag; `Kur.command` clears it, and if
+the first double-click is still blocked, right-click → **Open** once.
 
 ---
 
+## Usage
 
-## Ne yapabiliyor
+Start listening by saying **"Mahmut start"** or using the menu bar switch.
 
-| Komut | Ne olur |
+| Command | Action |
 |---|---|
-| ***"mahmut başla"*** | Dinlemeye başlar, *"Dinliyorum."* der |
-| ***"mahmut dur"*** | Dinlemeyi durdurur, *"Tamam, durdum."* der |
-| ***"mahmut kes"*** | Sadece **o anki okumayı** keser — dinleme sürer, kuyruktaki sıradaki mesaj okunur |
-| ***"mahmut mikrofon"*** | Gather'daki mikrofonu açar/kapatır (⇧⌘A gönderir) |
-| ***"listeyi getir mahmut"*** | Numaralı listeyi sesli okur |
-| ***"birinci seç mahmut"*** | Listedeki 1. konuşmaya geçer (kapalıysa açar) |
-| *"hey mahmut"* | Dinlemeyi açar (menubar düğmesi de var) |
-| *…konuş… **"tamam mahmut"*** | Konuştuğun her şey Claude'a gider |
-| *"**Backend Refactor** seç mahmut"* | Sol taraftaki o konuşmaya geçer |
-| *"cevap mahmut"* | Sana en son okunan mesajın konuşmasını hedefler |
-| *"boşver mahmut"* | Tamponu siler, mesaj gitmez |
+| *"… okay Mahmut"* | send the buffered text to Claude Code |
+| *"Mahmut cancel"* | clear the buffer without sending |
+| *"Mahmut quiet"* | stop the current reading |
+| *"Mahmut stop"* | stop listening (reading continues) |
+| *"Mahmut start"* | resume listening |
+| *"reply Mahmut"* | switch to the conversation that last spoke, then send |
+| *"select Admin Panel Mahmut"* | switch Claude Code to that conversation |
+| *"list Mahmut"* | read the numbered favourites list |
+| *"first one Mahmut"* | select item 1 from the list |
+| **⌥⌘K** | stop reading, from any application |
 
-**Zamanlanmış görevler (routines) okunmaz.** Tespit isimden değil, kaynaktan
-yapılıyor: routine tarafından başlatılan bir oturumun transcript'i şu izi taşır —
+Every phrase is configurable, and each command accepts many variants.
 
-```json
-"origin": {"kind": "task-notification", "subkind": "scheduled-trigger"}
-```
+### The wake name
 
-Normal konuşmalarda bu iz yok. Oturum üst verisi (`kind`, `nameSource`, `cwd`)
-routine'leri ayırt **etmiyor** — hepsi `interactive`/`user` görünüyor, hatta
-routine'ler gerçek oturumlarla aynı klasörde çalışıyor. Transcript izi tek
-güvenilir sinyal.
+The default wake name is **Mahmut** — a deliberately non-English, two-syllable
+word. Short English wake words are misrecognized constantly in accented or
+mixed-language speech. Change it under **Settings → Wake name**; all command
+patterns migrate to the new name automatically.
 
-Bu yüzden **yeni eklediğin routine'ler adı ne olursa olsun otomatik susturulur**.
-Kapatmak için `config.json` → `watch.mute_routines: false`.
+### Mixed-language speech
 
-Ad bazlı `watch.exclude_patterns` listesi de yedek olarak duruyor. Ayrıca
-menubar > **Sesli okunacaklar** altından herhangi bir konuşmayı tek tıkla açıp
-kapatabilirsin (seçimin `.muted.json`'a yazılır, yeniden başlatınca korunur).
+A sentence such as
 
-Ayrıca **tüm açık konuşmalar** aynı anda dinlenir. Bir cevap geldiğinde
-önce *"Backend Refactor mesajını okuyorum."* denir, kısa bir duraklamadan
-sonra içerik okunur — anons ayrı bir `say` çağrısı olduğu için cümleyle
-birbirine karışmaz. Aynı anda birkaç
-konuşmadan cevap gelirse hepsi tek kuyruğa girer, sırayla okunur.
+> "Şu **backend**'deki **race condition**'ı **fix** ettim, **deploy**
+> edebiliriz."
 
-Türkçe-İngilizce karışık konuşma hem **anlamada** hem **okumada** desteklenir:
-İngilizce terimler İngilizce telaffuzla (Samantha), Türkçe iskelet Türkçe sesle
-(Yelda) okunur.
+is transcribed as spoken. When read back, the English terms are pronounced by
+an English voice inside the Turkish sentence, without the stop-start artifacts
+of switching voices mid-sentence: segments are rendered in parallel and
+concatenated with FFmpeg, separated by real silence.
 
----
+A glossary repairs roughly 120 technical terms that transcription reliably
+mangles (`"mayigration"` → `migration`), suffix-aware so grammatical endings
+survive.
 
-## Kurulum
+### Teaching it your commands
 
-```bash
-./setup.sh
-open Mahmut.app
-```
+Transcription will mishear short commands — a two-word utterance carries almost
+no context. Rather than fighting this, the panel lets you extend the command
+sets by voice: open **Commands → Edit**, press 🎙, say the command as you
+normally would, review the transcription and add it.
 
-İki izin gerekiyor:
+Two mechanisms are available:
 
-| İzin | Niye | Nerede |
-|---|---|---|
-| **Mikrofon** | Konuşmanı duymak | Açılışta dialog → "İzin ver" |
-| **Erişilebilirlik** | Claude'a yazıp Enter'a basmak | Sistem Ayarları > Gizlilik ve Güvenlik > Erişilebilirlik |
+- **Word alignment** — the sentence is aligned with an existing pattern and
+  only the differing word is added to that word's spelling set, so the
+  correction applies to every pattern containing that word.
+- **Whole phrase** — if the word count matches no pattern, the sentence is
+  added as a new pattern.
 
-```bash
-open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-```
-
-> **İzin takılırsa** (listede açık görünüyor ama uygulama "izin yok" diyor):
-> kayıt bayatlamıştır. Açıp kapatmak düzeltmez, kaydı sıfırlamak gerekir:
->
-> ```bash
-> tccutil reset Accessibility com.erengunes.mahmut
-> ```
->
-> Sonra uygulamayı yeniden başlat; izin dialogu temiz olarak yeniden çıkar.
-
-Doğrulama:
-
-```bash
-./verify.sh                              # her şeyi kontrol et + yazma testi
-./.venv/bin/python selftest.py --mic     # 6 sn konuş, ne anladığını göster
-```
-
-### Açılışta otomatik başlatma
-
-```bash
-./install_autostart.sh
-```
-
-macOS her açıldığında ClaudeVoice başlar. Ayrıca 5 dakikada bir kontrol edilir —
-uygulama çökerse geri getirilir.
-
-```bash
-./install_autostart.sh --status    # durumu gör
-./install_autostart.sh --remove    # kaldır
-```
-
-İki tasarım kararı, ikisi de deneyerek bulundu:
-
-- **Başlatıcı script `~/Library/Application Support/ClaudeVoice/` altına yazılır**,
-  proje klasörüne değil. Proje `~/Desktop` altında ve macOS orayı TCC ile koruyor;
-  launchd oradaki bir scripti çalıştıramıyor (`Operation not permitted`, exit 126).
-- **Uygulama `open -a` ile başlatılır**, ikili doğrudan çalıştırılmaz. Böylece
-  LaunchServices üzerinden açılır ve Erişilebilirlik/Mikrofon izinleri geçerli
-  kalır — test edildi, launchd'nin başlattığı örnekte `ax_trusted: true`.
-
-Alternatif olarak Sistem Ayarları > Genel > Giriş Öğeleri > `+` > `Mahmut.app`
-da kullanılabilir, ama o yolda çökme sonrası geri getirme olmaz.
+English and Turkish language packs ship as static defaults and can be restored
+at any time from **Settings → Command set → Load / Reset**.
 
 ---
 
-## Kullanım
+## Control panel
 
-| Simge | Anlamı |
-|---|---|
-| ⚪️ | Kapalı (menubar düğmesi) — mikrofon hiç açık değil |
-| 😴 | Durduruldu (`"mahmut dur"`) — mikrofon açık ama **sadece** `"mahmut başla"` dinleniyor |
-| 🎙 | Açık, `"hey mahmut"` bekliyor |
-| 🔴 7 | Dinliyor, tamponda 7 kelime |
-| 🔊 | Cevap okunuyor (*"mahmut kes"* ile kesebilirsin) |
+`http://127.0.0.1:8765/` — also available from the menu bar.
 
-**İki ayrı "kapalı" var ve farkı önemli:**
+A single-page interface with three tabs:
 
-- **⚪️ Kapalı** menubar düğmesiyle olur, mikrofonu tamamen kapatır. Sesle
-  açılamaz — çünkü mikrofon kapalıyken seni duyamaz.
-- **😴 Durduruldu** `"mahmut dur"` ile olur, mikrofon açık kalır ama konuştuğun
-  hiçbir şey işlenmez. `"hey mahmut"`, `"tamam mahmut"`, `"seç mahmut"` —
-  hiçbiri çalışmaz. Sadece `"mahmut başla"` seni geri açar.
+- **Control** — listening and reading switches, volume, current buffer, the
+  live transcript archive (200 rows, each labelled with the command it
+  triggered), favourites and application shortcuts
+- **Commands** — the full command table; **Edit** opens a dialog showing every
+  pattern, removable spelling chips, a field to add a pattern and a microphone
+  button to add one by speaking
+- **Settings** — wake name, panel port, stop-reading shortcut, target
+  application, speech language, command set and reading voice
 
-**Akış:** menubar > *Dinleme: Açık* (ya da *"hey mahmut"*) → normal konuş,
-durakla, devam et (hiçbir şey gitmez) → **"tamam mahmut"**.
+Status messages appear as colour-coded toasts in the top-right corner. The
+**pause** control freezes the running system while you edit commands, so test
+phrases do not trigger real actions.
 
-Konuşurken Claude arka planda olabilir. Mesaj giderken odak ~300ms Claude'a
-geçer, sonra bulunduğun uygulamaya **geri döner** — test edildi, Finder öndeyken
-yazıp odağı Finder'a iade ediyor.
-
-### Cevaplama senaryosu
-
-```
-🔊  "Backend Refactor mesajını okuyorum."  …  "Migration çalıştı, 3 tablo güncellendi."
-🗣  "cevap mahmut"
-🔊  "Backend Refactor'ye cevap veriyorsun."
-🗣  "güzel, şimdi indexleri de ekle tamam mahmut"
-    → mesaj Backend Refactor konuşmasına gider (oraya otomatik geçilir)
-```
-
-### Telsiz kelimeleri
-
-| Amaç | Söyleyeceklerin |
-|---|---|
-| **Başlat** | "mahmut başla", "başla mahmut", "mahmut beni dinle", "mahmut uyan" |
-| **Durdur** | "mahmut dur", "dur mahmut", "mahmut bekle", "mahmut mola" |
-| **Okumayı kes** | "mahmut kes", "kes mahmut", "mahmut sus", "mahmut yeter" |
-
-> Okuma sürerken **sadece** kes/dur/başla komutları işlenir. Uygulama
-> kısayolları (ör. "mahmut mikrofon aç") okuma bitene kadar çalışmaz — bu
-> bilinçli: okunan metnin içinde komut adı geçerse kendini tetiklemesin diye.
-| **Gönder** | "tamam mahmut", "mahmut tamam", "gönder mahmut", "yolla mahmut", "over" |
-| **Cevapla** | "cevap mahmut", "cevapla mahmut", "yanıtla mahmut" |
-| **Konuşma seç** | "`<ad>` seç mahmut", "`<ad>` geç mahmut" |
-| **İptal** | "iptal mahmut", "boşver mahmut", "sil mahmut" |
-| **Uyandır** | "hey mahmut", "selam mahmut", "merhaba mahmut" |
-
-Çağrı adı **Mahmut** — kasıtlı olarak Türkçe bir isim. Whisper Türkçe modunda
-"Claude"u sürekli Clod/Cloud/Klot/Kılot diye yazıyordu; "Mahmut" tek şekilde
-yazılıyor. Bonus: artık konuşurken "Claude" diyebilirsin, komut tetiklenmez.
-
-Eşleştirme yine 1 harf hataya toleranslı (Mahmud, Mamut, Marmut hepsi tutar).
-Sadece "tamam" demek mesajı **göndermez** — sonunda "mahmut" da olmalı.
-
-Adı değiştirmek istersen `config.json` → `phrases.name` + `phrases.name_variants`
-ve kalıplardaki kelimeyi birlikte güncelle; menü ve durum metinleri addan
-türetildiği için kendiliğinden uyar.
-
-Konuşma adı eşleştirmesi de toleranslı: *"vois kontrol"* → `Voice Control`,
-*"admin"* → `Admin Paneli`. Alakasız bir isim söylersen eşleşmez, en
-yakın adayı söyler.
-
-### Türkçe-İngilizce karışık
-
-**Anlamada** düzeltme tek katmanda yapılır: Whisper çıktısı bir terim
-sözlüğünden geçer (`bajkenddeki → backend'deki`, `dojker → docker`,
-`stagginge → staging'e`, `kubernetis → kubernetes`). Düzeltme muhafazakârdır —
-düz Türkçe cümlelere dokunmaz.
-
-Whisper'a yazılımcı ağzıyla örnek cümleler veren bir `initial_prompt` da
-denedim ve **kaldırdım** — ölçtüğümde zarar verdiği çıktı:
-
-- Düz Türkçe'de hiçbir fayda sağlamadı (çıktılar birebir aynı)
-- Karışık cümlede Türkçe kelimeyi İngilizce'ye itti: *"Şu backend'deki"* →
-  `"Shubach kenddeki"`
-- Sessizlikte prompt'un kendisini geri okudu (`"API response"`, `"JSON"`) —
-  bu da "İngilizce'ye çeviriyor" izlenimi veriyordu
-
-Denemek istersen `config.json` → `stt.initial_prompt` alanına
-`claudevoice/config.py` içindeki `DEV_PROMPT` metnini koyabilirsin.
-
-**Okumada** tek ses kullanılır (Yelda). İngilizce terimleri de o okur —
-Türkçe fonetikle, ama **kesintisiz**.
-
-İngilizce terimleri ayrı bir İngilizce sesle okutmayı denedim ve kapattım:
-her terimde ses değiştirmek akıcılığı bozuyor, ayrıca her parça ayrı bir `say`
-çağrısı demek ve her çağrı ~1 saniye ölü zaman ekliyor (7 parçalı bir cümlede
-7 saniye). Denemek istersen `config.json` → `tts.bilingual: true`.
-
-Okunmadan önce metinden ayıklananlar: kod blokları, tablolar, dosya yolları,
-URL'ler, emoji, markdown işaretleri (`**`, `#`, `` ` ``, `|`) ve sesli
-okunmasının anlamı olmayan işaretler — `--`, `—`, `->` gibi tireler ve oklar
-virgüle çevrilir (doğal duraklama), geri kalanı atılır.
+If the configured port is in use, the panel moves to the next free port
+automatically. You can also set it in Settings: type a port, availability is
+checked immediately, and saving moves the panel live — the open page follows.
 
 ---
 
-## Kaynak kullanımı (ölçüldü, M serisi)
+## Configuration
 
-| Durum | CPU | Bellek |
-|---|---|---|
-| Boşta (dinleme kapalı) | **%0.9** | 432 MB |
-| Dinliyor (mikrofon + VAD) | **+%0.14** (8 çekirdeğin toplamında) | — |
-| Cümle çözümleme | **0.05–0.12 sn CPU** / cümle | — |
-
-Çözümleme 5.3 sn'lik bir cümleyi 1.05 sn'de bitiriyor (5x gerçek zaman) ama
-bunun neredeyse tamamı **GPU'da** (MLX/Metal) — CPU'ya düşen pay 0.1 saniyeden
-az. Yani fan dönmez, pil yemez.
-
-Asıl maliyet bellek: `large-v3-turbo` ağırlıkları ~430 MB tutuyor. Düşürmek
-istersen `config.json` → `stt.model` → `mlx-community/whisper-small-mlx`
-(~150 MB, Türkçe'de belirgin şekilde daha zayıf).
-
----
-
-## Uygulama kısayolları (sesle)
-
-Başka uygulamalara klavye kısayolu gönderebilir. Hedef uygulama kısa süreliğine
-öne alınır, tuş basılır, odak kaldığın uygulamaya **geri verilir** — test edildi,
-Claude öndeyken Gather'a kısayol gitti ve odak Claude'a döndü.
-
-Hazır gelen tek kayıt Gather mikrofonu:
-
-> *"mahmut mikrofon"*, *"mahmut mikrofon aç"*, *"mahmut mikrofonu kapat"*,
-> *"mikrofon aç mahmut"* …
-
-Hepsi aynı tuşa basar (⇧⌘A bir **anahtar**), ama sesli teyit söylediğin
-komuta göre verilir: *"aç"* → **"Mikrofon açıldı."**, *"kapat"* →
-**"Mikrofon kapatıldı."**, düz *"mahmut mikrofon"* → **"Mikrofon değiştirildi."**
-
-Gerçek durumu okuyup ayırt etmek mümkün değil: Gather mikrofon durumunu
-erişilebilirlik ağacında yayınlamıyor (arayüzünü ve menü çubuğu girişini
-yokladım, ikisi de boş geliyor).
-
-Kısayol gönderimi hedef uygulamayı kısa süreliğine öne alır, tuşa basar, odağı
-iade eder. Öne gelemezse **tuş gönderilmez** — yoksa kısayol o an önde olan
-uygulamaya düşer (bir keresinde Chrome'a ⇧⌘A gidip sekme arama paneli açtı).
-
-Yeni kısayol eklemek için `config.json` → `hotkeys` listesine bir kayıt ekle,
-kod değiştirmen gerekmez:
-
-```json
-{
-  "name": "Slack sessize al",
-  "bundle_id": "com.tinyspeck.slackmacgap",
-  "key": "m",
-  "modifiers": ["shift", "command"],
-  "phrases": ["mahmut slack sessiz", "slack sessiz mahmut"],
-  "reply": "Slack sessize alındı."
-}
-```
-
-`bundle_id`'yi bulmak için:
-
-```bash
-osascript -e 'id of app "Uygulama Adı"'
-```
-
-Desteklenen tuşlar: `a`–`z`, `0`–`9`, `space`, `return`, `escape`, `tab`,
-`delete`, yön tuşları, `f1`–`f12`. Değiştiriciler: `cmd`, `shift`, `alt`, `ctrl`.
-
----
-
-## Ayarlar
-
-`config.json` (menubar > *Ayarları aç*). Değişiklikten sonra yeniden başlat.
-
-| Alan | Varsayılan | Ne yapar |
-|---|---|---|
-| `phrases.listen` / `sleep` | — | "mahmut başla" / "mahmut dur" kalıpları |
-| `phrases.send` / `reply` / `switch` / `cancel` / `wake` | — | Diğer komut kelimeleri |
-| `tts.listen_reply` / `sleep_reply` | `Dinliyorum.` / `Tamam, durdum.` | Sesli teyitler |
-| `tts.voice` / `rate` | `Yelda` / `210` | Türkçe ses ve hız |
-| `ui.favorites` | 6 konuşma | Numaralı hızlı erişim listesi |
-| `tts.volume` | `1.0` | Okuma ses seviyesi (0.0–1.0) |
-| `tts.list_pause_sec` | `0.35` | Liste öğeleri arasındaki sessizlik |
-| `ui.resume_timeout_sec` | `45` | Kapalı konuşma açılırken beklenecek süre |
-| `watch.mute_routines` | `true` | Zamanlanmış görevleri okuma (transcript izinden tespit) |
-| `watch.exclude_patterns` | "her sabah", "günlük"… | Ek olarak, adında bunlar geçenleri de okuma |
-| `tts.duck_mic_while_speaking` | `false` | `true` → okuma sırasında mikrofonu kapat (sözle kesemezsin) |
-| `tts.bilingual` | `false` | `true` → İngilizce terimleri ayrı sesle oku (akıcılığı bozar) |
-| `tts.voice_en` / `rate_en` | `Samantha` / `200` | Yukarısı açıkken kullanılacak İngilizce ses |
-| `tts.announce_pause_ms` | `500` | Anons ile içerik arasındaki duraklama |
-| `tts.seamless` | `true` | Çok parçalı okumayı tek dosyada birleştirip kesintisiz çal |
-| `tts.announce_session` | `always` | `on_change` → sadece konuşma değişince söyle, `never` → hiç |
-| `tts.announce_template` | `{name} mesajını okuyorum.` | Anons şablonu |
-| `tts.max_chars` | `1200` | Tek mesajda okunacak üst sınır |
-| `audio.vad_ratio` | `3.2` | Gürültülü ortamda yükselt (5–6) |
-| `audio.silence_ms` | `700` | Cümle arası duraklama toleransı |
-| `ui.wake_word_mode` | `true` | `false` → "hey mahmut" demeden dinle |
-| `ui.start_listening` | `false` | `true` → açılışta mikrofon açık |
-| `inject.press_enter` | `true` | `false` → yazar ama göndermez |
-
----
-
-## Nasıl çalışır
-
-```
-mikrofon ─> VAD ─> MLX Whisper ─> sözlük ─> tampon
-                     (GPU)        düzeltme     │
-                                               ├─ "claude start/stop" ─> dinlemeyi aç / durdur
-                                               ├─ "tamam mahmut" ─> pano+Cmd+V+Enter ─> Claude.app
-                                               ├─ "<ad> seç mahmut" ─> claude://code/continue?session=…
-                                               └─ "cevap mahmut" ─> hedef oturumu hatırla
-
-~/.claude/sessions/*.json      ─> hangi konuşmalar açık, adları ne
-~/.claude/projects/*/*.jsonl   ─> TÜMÜ paralel izlenir
-         │
-         └─> markdown + işaret temizle ─> say (Yelda)
-             "<ad> mesajını okuyorum."  ─ 0.5 sn ─  içerik
-```
-
-**Neden pano?** Claude.app Electron. Accessibility ile metin alanına doğrudan
-değer yazmak React state'ini güncellemiyor. Pano + Cmd+V her sürümde çalışır.
-
-**Neden transcript dosyası?** Claude Code cevabı zaten `~/.claude/projects/`
-altına yazıyor. Ekran kazımaya gerek yok; `thinking` blokları ve araç çağrıları
-doğal olarak elenir.
-
-**Konuşma değiştirme AX gerektirmez.** Claude.app'in kendi deep link'i
-(`claude://code/continue?session=local_…`) kullanılıyor — uygulamanın kendi
-tepsi menüsünün kullandığı yol.
-
-**Okuma sırasında mikrofon açık kalır** ki *"mahmut kes"* diyebilesin. Claude'un
-kendi sesini duyup mesaj göndermesini engellemek için, okuma sürerken **yalnızca**
-kes / dur / başla komutları işlenir; duyulan başka her şey yok sayılır.
-
-Hoparlörden dinliyorsan ve yankı rahatsız ediyorsa `tts.duck_mic_while_speaking`
-değerini `true` yap — o zaman okuma sırasında mikrofon tamamen kapanır, okumayı
-sözle kesemezsin (menüden *Okumayı kes* ile kesersin).
-
----
-
-## İzinler hakkında bilinmesi gereken
-
-Uygulama ad-hoc imzalı. Ad-hoc imza **sabit kimlik vermez** — imza, ikilinin
-hash'ine bağlıdır. `Mahmut.app/Contents/MacOS/ClaudeVoice` her yeniden
-derlendiğinde Erişilebilirlik izni geçersiz olur.
-
-Pratikte sorun değil: Python kodu bundle'ın **dışında** durur ve mutlak yolla
-çağrılır, yani kodu istediğin kadar değiştirirsin — bundle'a dokunulmaz.
-`build_app.sh` idempotenttir, gerçekten gerekmedikçe derlemez
-(zorlamak için `./build_app.sh --force`).
-
-Launcher'ı yeniden derlemen gerekirse: `tccutil reset Accessibility
-com.erengunes.mahmut` → uygulamayı başlat → izni yeniden ver.
-
----
-
-## Ses kalitesi ve mikrofon seçimi
-
-**Varsayılan: kulaklık mikrofonu.** Masadan uzaktayken dahili mikrofon seni
-duymaz, kulaklık duyar. Kulaklık takılıp çıkarıldığında mikrofon ~5 saniye
-içinde kendiliğinden değişir.
-
-Bedeli: Bluetooth kulaklıkta mikrofon açılınca macOS kulaklığı HFP (hands-free)
-profiline düşürür ve **oynatma** kalitesi bozulabilir ("patlak" ses). Hep masada
-çalışıyorsan ve bu rahatsız ediyorsa dahili mikrofona geç:
+All settings live in `config.json`, created on first run and editable from the
+panel. Frequently adjusted keys:
 
 ```jsonc
-"audio": {
-  "prefer": "headset",   // "builtin" = dahili mikrofon, "system" = sistem varsayılanı
-  "device": null         // ya da "airpods" gibi isim parçası / cihaz indeksi
+{
+  "audio":     { "prefer": "headset", "device": null },
+  "stt":       { "model": "mlx-community/whisper-large-v3-turbo",
+                 "language": "tr" },
+  "tts":       { "voice": "Yelda", "enabled": true,
+                 "duck_mic_while_speaking": "auto" },
+  "shortcuts": { "stop_reading": "cmd+alt+k" },
+  "ui":        { "panel_port": 8765 }
 }
 ```
 
-Dahili mikrofon çok daha kısık kaydediyor (tepe ~0.006 vs AirPods ~0.08).
-Bunun için iki telafi var: ses Whisper'a verilmeden önce hedef seviyeye
-yükseltiliyor (`stt.normalize`) ve VAD alt sınırı buna göre ayarlı
-(`audio.vad_min_rms`). Yine de kısık mikrofonda tanıma bir miktar düşer —
-"kes" gibi üç harfli komutlar "test" diye duyulabilir; o durumda
-*"mahmut sus"* veya *"mahmut yeter"* de.
+### Microphone selection
 
-## voice panel
+Built-in microphones record considerably quieter than headsets (measured peak
+~0.006 versus ~0.08), which costs recognition accuracy, so `audio.prefer`
+defaults to `headset`. Note that Bluetooth headsets switch to the HFP profile
+when their microphone opens, which degrades playback quality — set
+`"prefer": "builtin"` if that matters more to you.
+
+If a headset is disconnected mid-session, PortAudio keeps serving a stale
+device list and the application goes deaf. This is detected (5 seconds of exact
+digital silence, or a 45-second idle check), PortAudio is re-initialized, and
+the new device is announced.
+
+---
+
+## How it works
 
 ```
-http://127.0.0.1:8765
+mic → energy VAD → MLX Whisper → glossary → matcher ─┬→ command
+                                                     └→ buffer → clipboard → ⌘V + Enter
+
+~/.claude/projects/**.jsonl → watcher → markdown stripper → say → speakers
 ```
 
-Menubar > **Kontrol panelini aç**. Sadece yerel arayüze bağlanır, dışarıdan
-erişilemez. Saniyede bir yenilenir.
+- **Voice activity detection** is energy-based with an adaptive noise floor,
+  pre-roll and a minimum-voiced-frames gate, so transient noise never reaches
+  the model. The model only runs when speech was actually detected.
+- **Hallucination filtering** — transcription invents text on near-silence.
+  Output is discarded based on a blacklist of recurring phantom phrases, a
+  compression-ratio check (above 2.4 indicates a loop) and a prompt-echo check.
+- **Matching** folds accented characters to ASCII, collapses repeated letters,
+  allows an edit distance of 1 on words of four or more characters, and splits
+  merged words.
+- **Injection** writes to the clipboard, brings the target to the front
+  (verified through `CGWindowListCopyWindowInfo`, since `NSRunningApplication`
+  values are cached and go stale without a run loop), sends ⌘V and Enter, then
+  restores the previously focused application.
+- **Reading** strips code blocks, tables, paths and emphasis markers, splits
+  text into language runs, renders them in parallel and concatenates them so a
+  bilingual sentence plays as one continuous utterance.
 
-| Bölüm | Ne var |
+### Performance
+
+Measured on an M-series machine:
+
+| | |
 |---|---|
-| **Okuma** | Açık/kapalı anahtarı, *Okumayı kes*, ses seviyesi kaydırağı (%0–100) |
-| **Dinleme** | Başla · Dur · Mikrofonu kapat · Mikrofonu yenile |
-| **Kısayollar** | Mikrofon aç / kapat / değiştir (ve `hotkeys`'e eklediklerin) |
-| **Tampon** | Ne biriktiğini gösterir, elle gönder/temizle |
-| **Liste** | Numaralı hızlı erişim — sırala (↑↓), geç, çıkar, ekle |
-| **Son duyulanlar** | Son 200 metin, sağında hangi komutu tetiklediği. Yeşil = komut çalıştı |
-| **Açık konuşmalar** | Tek tıkla geç, 🔊/🔇 ile sesli okumayı aç/kapat |
-| **Durum** | İzin, mikrofon cihazı, sinyal seviyesi, kuyruk, **CPU ve bellek** |
+| Idle | ~0.9% of one core, 184–432 MB resident |
+| Listening | +0.14% across 8 cores |
+| Transcribing a 5-second clip | ~1 s wall time, 0.05–0.12 s CPU (GPU-bound) |
+| `say` startup latency | ~1 s per call |
+| Multi-segment render | 1.14 s preparation, then gapless playback |
 
-Ses kaydırağı **okuma sürerken** de çalışır: ses blok blok çalınıyor ve her
-blokta güncel seviye okunuyor, yani kaydırağı oynattığın an (~43 ms) uygulanır.
+---
 
-**Son duyulanlar** bölümünde her satırın sağındaki **+** düğmesiyle yanlış
-duyulan bir cümleyi komut setine ekleyebilirsin. Komutu seç, sonra:
+## Security and privacy
 
-- **Kelimeleri ekle** — cümleyi komutun aynı uzunluktaki kalıbıyla hizalar ve
-  farklı kelimeleri yazım setine alır. Örnek: *"Mahmut, çeşit"* + `kes` →
-  `çeşit` kelimesi `kes` setine girer ve **başka cümlelerde de tutar**.
-- **Cümleyi ekle** — kelime sayısı hiçbir kalıpla tutmuyorsa (cümle çok
-  bozulmuşsa) tamamı kalıp olarak eklenir. Örnek: *"listeyi getir Mahmut"*
-  → *"Yüce 3 yi ten mamut"* gibi kurtarılamaz durumlar için.
+**No API keys or credentials.** Mahmut never calls Claude's API; it types into
+the window exactly as you would (clipboard, ⌘V, Enter). There is no key in the
+repository or in `config.json`, no access to your account, and no reading of
+session cookies.
 
-`config.json` anında güncellenir ve kalıplar yeniden derlenir — uygulamayı
-yeniden başlatmaya gerek yok.
+**No outbound traffic.** The application code contains no network calls; speech
+is transcribed on-device. The only download is the model, fetched during
+installation.
 
-Bir satıra tıkla →
-panoya kopyalanır, *Hepsini kopyala* ile tüm liste `saat  metin  → sonuç`
-biçiminde alınır. Yeni bir yanlış duyma görürsen `config.json` →
-`phrases.word_variants` altındaki ilgili kelimenin listesine ekle.
+**Access required:**
 
-## Kendi sesini duyması (hoparlör yankısı)
+| | Purpose |
+|---|---|
+| Microphone | transcribing speech |
+| Accessibility | typing into the target window, sending application shortcuts |
+| `~/.claude/projects/**.jsonl` | reading incoming replies (read-only) |
+| `~/.claude/sessions/*.json` | names and identifiers of open conversations |
 
-Kulaklıksız çalışırken mikrofon, Mahmut'un **kendi okuduğunu** duyuyor. Gerçek
-vakada şu oldu: cevabımda `tamam mahmut` yazıyordu → Mahmut onu sesli okudu →
-mikrofon duydu → gönder komutu tetiklendi ve **kullanıcının yazmadığı bir mesaj
-Claude'a gitti**. Arşivdeki "Mahmut test" satırları da kullanıcının değil,
-uygulamanın kendi sesiydi (`test` kelimesi `kes` yazım setinde).
+Accessibility is a powerful permission — it allows an application to send
+keystrokes anywhere. The entire codebase is open, and `inject.py` is the only
+file that uses it.
 
-Çözüm — mikrofonu kapatmak değil (hoparlörle de konuşabilmek gerekiyor),
-**metin düzeyinde ayıklamak**:
+**The local panel** binds to `127.0.0.1` only. Because a browser page can send
+a preflight-free `text/plain` POST to a local address, requests carrying a
+foreign `Origin` header are rejected with HTTP 403.
 
-- `Speaker.current_text` o an okunan metni tutar, `recent_text()` okuma
-  bittikten sonra da **8 sn** boyunca verir. Bu şart: son ses parçası okuma
-  bittikten ~1 sn sonra yazıya çevriliyor, `speaker.busy` o anda `False`
-  olduğu için yankı tam korumasız geçiyordu.
-- `_is_own_voice()` duyulan kelimeleri okunan metinde **ardışık alt dizi**
-  olarak arar (`word_eq` ile toleranslı). Sadece "kelimelerin çoğu geçiyor"
-  demek yetmiyor: okunan metinde "mahmut" ve "kes" ayrı ayrı geçerse
-  kullanıcının gerçek `mahmut kes` komutu da yok ediliyordu.
-- Eşleşirse hiçbir komut çalışmaz, arşivde `🔇 kendi sesi` olarak görünür.
+**Data stored on disk**, all excluded from version control: `config.json`
+(settings and conversation names), `.state.json` (recent transcripts and a
+200-row archive), `.app.log`, `.muted.json`.
 
-`tts.duck_mic_while_speaking`: `"auto"` (varsayılan) mikrofonu **kapatmaz**,
-yalnızca yukarıdaki metin filtresine güvenir. `true` dersen klasik davranış
-döner (okuma boyunca mikrofon kapalı, ama o zaman okuma sürerken
-"mahmut kes" de diyemezsin). `audio.output_is_loud()` çıkışın hoparlör mü
-kulaklık mı olduğunu söyler (giriş/çıkış aynı cihazsa kulaklık sayılır).
+**Code hygiene:** no `shell=True`, `eval`, `exec` or `pickle`; all
+`subprocess` calls use list arguments; only a numeric process id is
+interpolated into AppleScript; session identifiers in `claude://` deep links
+are format-validated before use.
 
-> Kalan sınır: okunan metin `mahmut kes` ifadesini **aynen ve ardışık**
-> içeriyorsa, o sırada sen de "mahmut kes" dersen bastırılır. Gerçek akustik
-> echo cancellation olmadan bu ayrılamıyor; panel ve menubar'daki "Okumayı
-> kes" düğmeleri her durumda çalışır.
+---
 
-### "+" ile kelime ekleme (arşivden)
+## Implementation notes
 
-Arşivdeki bir satırın `+` düğmesi, duyulan cümleyi komutun kalıbıyla **hizalayıp**
-farklı kelimeleri yazım setine atar. İki gerçek hata çıktı, ikisi de düzeltildi:
+A few problems worth recording. The [Turkish README](README.tr.md) documents
+these in full.
 
-1. **"6.yi seç Mahmut." hizalanamıyordu.** `tokenize` noktada bölüyordu:
-   `['6','yi','sec','mahmut']` → 4 kelime, kalıp 3 kelime → "4 kelimelik kalıp yok".
-   Kelime **içindeki** nokta/kesme artık bölmüyor: `6.yi → 6yi`,
-   `Mahmut'un → mahmutun`. Cümle sonundaki nokta hâlâ ayrılır
-   (`"Merhaba. Nasılsın" → ['merhaba','nasilsin']`). Bu sadece ekleme değil,
-   **tanımayı da** düzeltti: "6.yi seç Mahmut." artık doğrudan `fav:6` tutuyor.
-2. **Yanlış kalıba yapıştırma.** Aday diziler yalnızca "aynı uzunlukta kalıp yok"
-   iken üretiliyordu. `send` içinde tek kelimelik `over` olduğu için
-   "tamammahmut" 1 kelime sayılıp **"over"in yazımı** diye ekleniyordu. Artık
-   komşuları birleştirme/bölme adayları her zaman üretilip en çok tutan seçiliyor
-   (`tamammahmut → tamam|mahmut`, zaten tutuyor).
+**The application heard itself.** Through speakers rather than headphones, the
+microphone picks up the reading. In one case a reply containing a sign-off
+phrase was read aloud, transcribed, and sent a message the user never spoke.
+Muting the microphone during playback would prevent stopping a reading by
+voice, so the heard text is instead matched against what is currently being
+spoken — as a *contiguous subsequence*, because a simple word-overlap ratio
+also suppressed genuine commands. The guard remains active for 8 seconds after
+playback, since the final audio chunk is transcribed about a second late.
 
-Hepsi zaten tutuyorsa artık kırmızı "eklenecek yeni kelime yok" değil, yeşil
-"zaten tutuyor — bu cümle bu komutu tetikliyor" yazıyor.
+**Whisper's `initial_prompt` was harmful.** Measured: no benefit on plain
+speech, corruption of mixed-language sentences, and self-echo on silence. It is
+disabled.
 
-### Bildirimler (toast)
+**Tokenization split ordinals.** `6.yi` became two tokens, so a three-word
+pattern never matched. Word-internal periods and apostrophes no longer split
+tokens, while sentence-ending punctuation still does.
 
-Durum metni header'da duruyordu ve uzun mesajlar (örn. "'tamam namık' →
-'send' komutuna eklendi") şeridi taşırıyordu. Artık header'da sadece durum
-ikonu var; mesajlar **sağ üstten balon** olarak çıkıp 4.5 sn sonra kayboluyor,
-en fazla 3 tane üst üste durur. Renk metne göre seçilir (`TKIND`):
-kırmızı = hata/çakışma, yeşil = eklendi/kaydedildi, camgöbeği = dinliyorum,
-sarı = duraklatıldı/kesildi, gri = nötr.
+**`codesign … | grep -q` reports false negatives.** `grep -q` exits early,
+`codesign` receives SIGPIPE, and `set -o pipefail` marks the pipeline as
+failed — the check declared a valid ad-hoc signature invalid and stripped it.
 
-> Ölçülen tuzak: giriş animasyonu `opacity` oynatırsa, sekme arka plandayken
-> tarayıcı çizim yapmadığı için animasyon ilk karede (opacity 0) donup kalıyor
-> ve bildirim **hiç görünmüyor**. Bu yüzden animasyon sadece `transform`
-> oynatıyor, `requestAnimationFrame` da kullanılmıyor.
+**`say` outlives its parent process.** It spawns a child, so terminating the
+parent left audio playing. The speaker now runs in its own process group.
 
-### Hedef uygulama (Ayarlar > Kod uygulaması)
+**Dock tiles multiplied.** Once the bundle was no longer `LSUIElement`, every
+additional launch added a Dock icon. A PID lock file now causes a second
+instance to exit immediately, and one-shot CLI modes never register a tile.
 
-- **Claude Code** (`com.anthropic.claudefordesktop`) — varsayılan, tam destek.
-- **GPT Codex (ChatGPT)** (`com.openai.codex`) — listede görünür ama
-  **seçilemez** (`TARGETS[...]["enabled"] = False`); henüz denenmedi.
+---
 
-Codex'in ayrı bir masaüstü uygulaması yok: `/Applications/ChatGPT.app`'in
-bundle id'si zaten `com.openai.codex` (eski uygulama "ChatGPT Classic" =
-`com.openai.chat`). Yazma/gönderme yolu aynı (pano + Cmd+V + Enter) olduğu için
-muhtemelen çalışır; **okuma çalışmaz**, çünkü cevapları Claude'un
-`~/.claude/projects/**.jsonl` transkriptlerinden okuyoruz, Codex'te o kaynak yok.
-
-### Komut penceresi (Komutlar > Düzenle)
-
-- **Ekleme kutusu en üstte**: kalıbı yazıp `Ekle`, ya da 🎙 ile söyleyerek ekle.
-  Liste uzun olduğu için kutu altta kalınca her seferinde aşağı kaydırmak
-  gerekiyordu.
-- **Sonuç aynı pencerede** gösterilir ("🔴 'tamam mahmut' zaten 'send'
-  kalıplarında"). Eskiden sadece sağ üstteki durum satırına düşüyordu, ilgisiz
-  bir yerde görünüyordu. `/api/action` artık `{"ok":…, "msg":…}` döndürüyor.
-- **Yazım setleri rozet olarak** listelenir, her birinin `×`'i vardır. Ana kelime
-  (setin adı) camgöbeği ve `×`'siz: kaldırılırsa komut hiç eşleşmez.
-- Aynı yazım iki kez görünmez (`_uniq`), eski config'lerdeki tekrarlar temizlenir.
-
-### Sesle yakalama (🎙) neden sessiz kalıyordu
-
-Okuma başlarken mikrofon kısılıyor (`mic.mute_for(3600)`, kendi sesini duymasın
-diye). Yakalama o anki okumayı kesiyordu ama **kısma kalkmıyordu**; konuşmanın
-hiçbir çerçevesi işlenmiyordu. Ayrıca mikrofon kapalıyken (`OFF`) STT döngüsü
-sesi tamamen atıyordu. Şimdi yakalama açılınca:
-
-1. okuma kuyruğu **bekletilir** (`Speaker.set_hold` — mesajlar silinmez),
-2. mikrofon zorla açılır ve kısma anında kaldırılır (`unmute_after(0)`),
-3. yakalama açıkken `_tts_started` mikrofonu kısmaz,
-4. STT döngüsü `OFF` durumunda bile sesi işler.
-
-Duyulan metin `.app.log`'a `[yakala]` satırı olarak düşer.
-
-## Numaralı liste
-
-`config.json` → `ui.favorites`. Panelden düzenlenir, değişiklik anında
-kaydedilir ve sesli komut kalıpları yeniden derlenir.
-
-> 🗣 *"listeyi getir Mahmut"* → *"Listeyi okuyorum."* · *"bir Mobil Uygulama"* ·
-> *"iki Backend Refactor"* · *"üç Site Yenileme, kapalı"* …
->
-> 🗣 *"birinci seç Mahmut"* → *"Mobil Uygulama seçildi."*
-
-Liste okuma komutu **gevşek** eşleştirilir: kısa bir cümle "liste" ile
-başlıyorsa, çağrı adı tanınmasa bile liste okunur. Gerekçesi ölçülmüş bir
-durum — Whisper *"listeyi getir Mahmut"*u **"Listeyi yatırmamışım."** diye
-yazdı, ikinci kelimede tanınacak hiçbir şey kalmamıştı. Liste okumak zararsız
-olduğu için (mesaj gitmez, durum değişmez) burada gevşek davranmak güvenli.
-Uzun cümleler tetiklemez: *"listeyi güncelledikten sonra bana haber ver"*
-komut sayılmaz. `phrases.list_loose_max_tokens: 0` ile kapatılır.
-
-Her sıra için beş söyleyiş kabul edilir: `birinci seç Mahmut`, `birinci Mahmut`,
-`bir seç Mahmut`, `1 seç Mahmut`, `Mahmut birinci`.
-
-**Kapalı bir konuşma seçilirse önce açılır:**
-
-> *"Site Yenileme kapalı, açıyorum."* → (birkaç saniye) → *"Site Yenileme açıldı ve seçildi."*
-
-Bunun için Claude'un kendi deep link'i kullanılır
-(`claude://code/resume?session=<uuid>`) ve **oturum kimliği korunur** — yeni bir
-konuşma açılmaz, aynısı devam eder. Kapalı konuşmaların kimliğini bulmak için
-arka planda bir başlık indeksi çalışır (418 transcript ~0.3 sn'de taranır,
-5 dakikada bir yalnızca değişenler yenilenir).
-
-Deep link bazen sessizce düşüyor (uygulama meşgulse); bir kez daha deneniyor.
-
-### Liste neden parça parça okunuyor
-
-Noktalama ile doğru duraklama elde edilemiyor. Ölçtüm:
-
-- `"bir, Mobil Uygulama. iki, …"` → duraklama **sayıdan sonra** (0.29 sn'de), isim
-  bir sonraki sayıya yapışıyor
-- `"bir Mobil Uygulama. iki …"` → öğeler arası duraklama **tamamen kayboluyor**
-  (Yelda bu bağlamda noktada duraklamıyor)
-
-Bu yüzden her öğe ayrı ses parçası olarak basılıp aralarına **gerçek sessizlik**
-(`tts.list_pause_sec`, varsayılan 0.35 sn) konuyor, hepsi tek dosyada
-birleştirilip çalınıyor.
-
-## Durdurma
+## Troubleshooting
 
 ```bash
-./stop.sh
+./selftest.py      # permissions, microphone, model, voice, live sessions
+./verify.sh        # restarts the app and types a test line into Claude Code
+./stop.sh          # stops the app and any orphaned say/afplay processes
+./run.sh           # run in the terminal to see tracebacks
+tail -f .app.log   # live log
 ```
 
-`say` ve `afplay` **ayrı süreçlerdir** ve uygulama ölse bile okumaya devam
-ederler. Doğrudan `pkill python` yaparsan ses yetim kalıp konuşmayı sürdürür
-(üst üste binen yetimler "patlak" ses de yapar). `stop.sh` hepsini kapatır.
+**Accessibility permission not recognized after a rebuild.** Ad-hoc signatures
+are cdhash-based, so rebuilding the launcher invalidates the grant. Remove the
+stale entry with `-` and add the application again — toggling it off and on is
+not sufficient. Alternatively:
 
-Uygulama kendi de korur: `SIGTERM`/`SIGINT` alınca okuyan süreci öldürür, ve her
-açılışta önceki çalışmadan kalan yetimleri temizler (`.tts.pids` dosyasından).
-Sadece `kill -9` durumunda yetim kalır, o da bir sonraki açılışta temizlenir.
+```bash
+tccutil reset Accessibility com.erengunes.mahmut
+```
 
-## Panel'i değiştirirken
+**Panel buttons do nothing.** The panel's JavaScript lives inside a Python
+string where a stray escape silently breaks it. `./check_panel.sh` runs
+`node --check` against it. Note that the page is served from the running
+process: restart the application after editing `panel.py`.
 
-`panel.py` içindeki `PAGE` çalışan sürecin belleğinden servis edilir. Sayfayı
-düzenledikten sonra **uygulamayı yeniden başlatmadan** tarayıcıyı yenilemek eski
-HTML'i gösterir (bir kez bu yüzden "düzelttim" sanıp eski CSS'i test ettim).
-Sıra: `./check_panel.sh` → `./stop.sh && open Mahmut.app` → yenile.
+---
 
-## Okumayı kesen kısayol
+## Limitations
 
-Varsayılan **⌥⌘K** (k = kes) — her yerde çalışır, uygulama arkada olsa da. Panelden
-değiştirilir (Ayarlar > Okumayı kes kısayolu, `cmd+alt+.` yazımıyla).
+- Apple Silicon only (MLX).
+- The target application must be running for a message to be delivered.
+- Reading replies works with Claude Code only, whose transcripts are the
+  source. A GPT Codex target appears in Settings but is disabled: sending would
+  likely work, reading has no equivalent source.
+- The bundle is not relocatable — the project path and virtualenv are compiled
+  in, and the model lives in `~/.cache/huggingface`. Distributing a prebuilt
+  binary would require packaging dependencies and the model inside the `.app`.
+- If the text being read contains your stop phrase verbatim and in order, a
+  spoken stop command is suppressed at that moment. The panel and menu bar
+  controls always work.
 
-Seçim kriteri: `NSEvent` genel izleyicisi olayı **yutmaz**, tuş basımı öndeki
-uygulamaya da gider. Bu yüzden boşta bir kombinasyon şart:
+---
 
-| Kombinasyon | Durum |
-|---|---|
-| `⌘K` | Chrome/Safari adres araması, Terminal ekran temizleme, Slack/Notion/VS Code komut paleti |
-| `⌘L` | Tarayıcılarda adres çubuğuna atlar |
-| `⌘B` | Her editörde kalın yazı, Xcode'da Build |
-| `⌃Space`, `⌃⌥Space` | macOS giriş kaynağı değiştirme |
-| `⇧⌘.` | Finder'da gizli dosyalar |
-| **`⌥⌘K`** | **boşta** — seçilen kısayol (yalın `⌘K` dolu, `⌥` eklenmiş hali değil) |
-| **`⌥⌘.`**, **`⌃⌥` + harf** | **boşta** — alternatifler |
+## License
 
-Olayı gerçekten yutmak için `CGEventTap` gerekir; o zaman da o kısayol **tüm**
-uygulamalardan çalınır (örn. `⌘L` ile artık adres çubuğuna gidemezsin), bu
-yüzden tercih edilmedi.
+[MIT](LICENSE) © Eren Güneş
 
-## Panel portu
-
-- Port doluysa panel **sıradaki boş portu** dener (`8765` → `8766` … `+9`,
-  sonra rastgele). Eskiden hiç açılmıyordu ve bunu sadece logdan anlardın.
-- Ayarlar > Panel portu: yazdığın anda `/api/portcheck` boş mu dolu mu söyler
-  (yeşil/kırmızı), boşsa sağdaki **Kaydet** aktifleşir.
-- Kaydedince panel uygulamayı kapatmadan yeni porta taşınır ve açık sayfa
-  kendiliğinden yeni adrese gider. Taşıma, yanıt gönderildikten 0.6 sn sonra
-  yapılır; yoksa cevabı taşıyan bağlantı kapanıp tarayıcı hata gösterir.
-
-## Bundle: Python neden içeride
-
-Eski launcher, bundle'ın **dışındaki** venv python'unu `exec` ediyordu. O anda
-sürecin bundle'ı `Python.app` oluyor; Dock'ta "Python" + roket ikonu görünüyor,
-`CFBundleName`'i çalışma anında değiştirmek de yalnızca menü çubuğunu
-düzeltiyordu (`lsappinfo` doğru ismi gösterse bile Dock karesi diskteki
-bundle'dan okuyor).
-
-Şimdi launcher `libpython`'a bağlanıp **kendi içinde** `Py_BytesMain` çağırıyor:
-ayrı süreç yok, sürecin bundle'ı `Mahmut.app`. Dock'ta isim ve robot ikonu
-doğru. Python kodu hâlâ bundle'ın dışında (`APP_ROOT`, venv site-packages
-derleme sırasında gömülür), yani kodu değiştirmek imzayı bozmaz.
-
-### Tek kopya kilidi
-
-`LSUIElement` kalktığı için her süreç artık Dock'ta **ayrı bir kare** açıyor.
-`verify.sh` testi `open -n` (yeni kopya) ile çalıştığından ve LaunchAgent 5
-dakikada bir kontrol ettiğinden Dock'ta üst üste Mahmut ikonları birikti.
-İki önlem:
-
-- `_single_instance()` — `.app.lock` içinde pid tutar; canlı bir kopya varsa
-  yeni süreç hemen çıkar (`[tek kopya] zaten calisiyor`). Çıkışta kilit silinir.
-- `_dock_hide()` — `--test-inject`, `--probe-ax`, `--test-hotkey` gibi tek
-  seferlik modlar `NSApplicationActivationPolicyProhibited` ile hiç kare açmaz.
-
-### Bundle değişince izinler sıfırlanır
-
-Ad-hoc imza cdhash tabanlı: launcher veya Info.plist değişirse Erişilebilirlik
-(ve mikrofon) izni geçersiz olur. Bundle id de `com.erengunes.mahmut` →
-`com.erengunes.mahmut` oldu. Yeniden vermek gerekir:
-Sistem Ayarları > Gizlilik ve Güvenlik > Erişilebilirlik > `+` > `Mahmut.app`.
-`build_app.sh` gerçekten değişiklik yoksa bundle'a dokunmaz (fingerprint).
-
-### Ürün hali için eksikler
-
-Şu an bundle **taşınabilir değil**: `APP_ROOT` ve venv yolu derlemede gömülü,
-Whisper ağırlıkları da `~/.cache/huggingface` altında. Başka makinede
-çalışması için bağımlılıkların ve modelin .app içine paketlenmesi
-(py2app/PyInstaller + model dosyası) ve ilk açılışta izin anlatan bir ekran
-gerekir.
-
-## İsim ve ikon
-
-- `assets/robot.svg` → neon robot; `make_icon.py` bunu `assets/Mahmut.icns`,
-  `icon.png` ve menubar PNG'lerine çevirir (pyobjc ile render, ek bağımlılık yok).
-- İkon **bundle'ın içine kopyalanmaz**. Kopyalansa imza mührü bozulur ve
-  Erişilebilirlik izni gider. Bunun yerine açılışta
-  `NSApplication.setApplicationIconImage_()` ile atanır.
-- macOS uygulamayı normalde `org.python.python` (yani "Python") diye gösteriyordu;
-  çünkü launcher, bundle dışındaki venv python'unu çalıştırıyor. `_brand()`
-  `NSBundle.mainBundle().infoDictionary()` içindeki `CFBundleName` alanını
-  değiştirerek bunu düzeltiyor. Doğrulama: `lsappinfo list | grep Mahmut`.
-- İkonu değiştirmek istersen SVG'yi düzenle, `./.venv/bin/python make_icon.py`
-  çalıştır, uygulamayı yeniden başlat. Dock ikonu önbelleklenmez.
-
-## Sorun giderme
-
-| Belirti | Çözüm |
-|---|---|
-| Menubar simgesi yok | `./run.sh` ile terminalden çalıştır, hatayı gör |
-| "Erişilebilirlik izni yok" ama listede açık | `tccutil reset Accessibility com.erengunes.mahmut` sonra yeniden başlat |
-| Mesaj gidiyor ama boş | Claude'da imleç yazma alanında değil; composer'a bir kez tıkla |
-| Konuşuyorum, tampon boş | `audio.vad_ratio`'yu düşür (2.5) |
-| Ortam gürültüsü mesaj yapıyor | `audio.vad_ratio`'yu yükselt (5–6), `wake_word_mode` aç |
-| Konuşma adı bulunamıyor | Menubar > *Konuşmalar* ile elle geç; adı kısalt ("portal" yeter) |
-| İngilizce terimler Türkçe okunuyor | `claudevoice/bilingual.py` → `_EN_WORDS`'e ekle |
-| İngilizce okuma rahatsız ediyor | `config.json` → `tts.bilingual: false` |
-| Çözümleme yavaş | `stt.model` → `mlx-community/whisper-small-mlx` |
-| Uygulama açılınca ses "patlak" oluyor | Kulaklık mikrofonu HFP'ye düşürüyor — `audio.prefer_builtin: true` (varsayılan) olmalı |
-| Kapattım ama hâlâ okuyor | `pkill` yerine `./stop.sh` kullan |
-| Komut hiç tepki vermiyor | `.app.log` dosyasına bak — açılışta yüklenen kısayol sayısı ve hatalar orada |
-| Saçma metinler tampona giriyor | Whisper halüsinasyonu; filtre var ama `audio.vad_ratio`'yu yükseltmek de yardımcı olur |
-
-## Bilinen sınırlar
-
-- Mesaj gönderilirken odak kısa süre Claude'a geçer; o anda yazıyorsan tuşların kaybolur.
-- Pano gönderim anında geçici değişir, ~250 ms sonra eski içeriği geri yüklenir.
-- Sadece **çalışan** konuşmalar izlenir ve geçilebilir (kapalı olanlar listede olmaz).
-- Her `say` çağrısı ~1 sn ölü zaman getirir. Bu yüzden okuma en fazla iki
-  parçaya bölünür (anons + içerik); içerik kendi içinde tek parçadır.
-- 😴 durduruldu modunda konuşma yine çözümlenir (uyandırma kelimesini duymak
-  için). Uzun süre hiç kullanmayacaksan menubar düğmesiyle tamamen kapat.
+This is an independent project. It is not affiliated with, endorsed by, or
+connected to Anthropic. "Claude" and "Claude Code" are trademarks of Anthropic
+and are used here only to identify the application this tool works with.

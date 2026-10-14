@@ -276,8 +276,7 @@ DEFAULTS = {
         # (Electron pencereleri gec odaklaniyor)
         "hotkey_activate_delay_ms": 400,
         # true: kisayolu hedef surece DOGRUDAN gonder (odak degismez).
-        # GATHER BUNU YOK SAYIYOR (denendi, mikrofon degismedi).
-        # Gather bu olaylari YOK SAYIYOR, bu yuzden varsayilan false:
+        # Bazi uygulamalar bu olaylari YOK SAYIYOR, bu yuzden varsayilan false:
         # uygulama kisa sureligine one alinir, tusa basilir, odak iade edilir.
         "direct_post": False,
         "paste_delay_ms": 90,        # Cmd+V sonrasi Enter oncesi bekleme
@@ -296,64 +295,17 @@ DEFAULTS = {
     # uygulamaya iade edilir. Yeni bir kisayol eklemek icin buraya bir kayit
     # ekle; kod degistirmen gerekmez.
     #
-    # NOT: Gather'in mikrofon kisayolu (Shift+Cmd+A) bir ANAHTAR'dir, yani
-    # "ac" da "kapat" da ayni tusa basar. Gather mikrofon durumunu
-    # erisilebilirlik agacinda yayinlamadigi icin durumu okuyup ayirt etmek
-    # mumkun degil.
-    "hotkeys": [
-        {
-            "name": "Gather mikrofon",
-            "bundle_id": "com.gather.GatherV2",
-            "key": "a",
-            "modifiers": ["shift", "command"],
-            # Tus bir ANAHTAR: "ac" da "kapat" da ayni tusa basar. Gather
-            # mikrofon durumunu disariya vermedigi icin gercek durum
-            # okunamiyor; bu yuzden sesli teyit SOYLEDIGIN komuta gore
-            # verilir. Her grup kendi cevabini (reply) ve panel etiketini
-            # (label) tasir; sesli cevap kisa, panel etiketi aciklayici.
-            "actions": [
-                {
-                    "phrases": [
-                        "mahmut mikrofon ac", "mahmut mikrofonu ac",
-                        "mikrofon ac mahmut", "mikrofonu ac mahmut",
-                        "mahmut sesi ac", "mahmut mikrofon acc",
-                    ],
-                    "reply": "Açıldı.",
-                    "label": "Mikrofon aç",
-                },
-                {
-                    "phrases": [
-                        "mahmut mikrofon kapat", "mahmut mikrofonu kapat",
-                        "mikrofon kapat mahmut", "mikrofonu kapat mahmut",
-                        "mahmut sesi kapat", "mahmut mikrofonu kapa",
-                    ],
-                    "reply": "Kapandı.",
-                    "label": "Mikrofon kapat",
-                },
-                {
-                    "phrases": ["mahmut mikrofon", "mikrofon mahmut"],
-                    "reply": "Değiştirildi.",
-                    "label": "Mikrofon değiştir",
-                },
-            ],
-        },
-    ],
-    "watch": {
-        # Zamanlanmis gorevleri (routines) sesli okuma. Tespit, transcript'teki
-        # "scheduled-trigger" izinden yapilir — isme bagli degildir, yani yeni
-        # eklenen routine'ler de adi ne olursa olsun otomatik susturulur.
-        "mute_routines": True,
-        # Adinda bunlardan biri gecen konusmalar SESLI OKUNMAZ.
-        # Zamanlanmis gorevler (routines) oturum verisinde normal
-        # konusmalardan ayirt edilemiyor (kind/nameSource ayni), bu yuzden
-        # ayirt etme ada gore yapiliyor. Buyuk/kucuk harf ve Turkce
-        # karakter farki onemsiz.
-        "exclude_patterns": [
-            "her sabah", "her gun", "her gece", "her aksam",
-            "her hafta", "her ay", "(her ", "gunluk",
-            "routine", "scheduled", "zamanlanmis", "otomatik gorev",
-        ],
-    },
+    # Ornek: toplanti uygulamasinin mikrofonunu sesle ac/kapa. Kendi
+    # uygulamanin bundle id'sini `osascript -e 'id of app "Uygulama"'`
+    # ile ogrenebilirsin.
+    #
+    # NOT: Cogu uygulamanin mikrofon kisayolu bir ANAHTAR'dir; "ac" da
+    # "kapat" da ayni tusa basar. Uygulama mikrofon durumunu disariya
+    # vermiyorsa gercek durum okunamaz, bu yuzden sesli teyit SOYLEDIGIN
+    # komuta gore verilir. Her grup kendi cevabini (reply) ve panel
+    # etiketini (label) tasir.
+    "hotkeys": [],
+
     "ui": {
         # Acilista hangi durumda baslasin:
         #   "sleep"  -> mikrofon ACIK ama sadece "mahmut basla" dinlenir (onerilen)

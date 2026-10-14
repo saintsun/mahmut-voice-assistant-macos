@@ -2388,7 +2388,7 @@ def main() -> None:
         _dock_hide()
         from . import axprobe
         i = sys.argv.index("--probe-ax")
-        bundle = sys.argv[i + 1] if len(sys.argv) > i + 1 else "com.gather.GatherV2"
+        bundle = sys.argv[i + 1] if len(sys.argv) > i + 1 else ""
         axprobe.main(bundle, os.path.join(os.path.dirname(CONFIG_PATH),
                                           ".axprobe.json"))
         return
