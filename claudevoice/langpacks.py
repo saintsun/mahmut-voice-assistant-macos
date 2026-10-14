@@ -82,6 +82,36 @@ PACKS: dict[str, dict] = {
             "getir": ["getir", "gatir", "getiri", "yatir", "getirdim",
                       "getirdi", "getirin", "getirip", "getirem", "getirdin"],
             "liste": ["liste", "listeyi", "listemi", "listesi", "listeye"],
+        # --- Sira sayilari -------------------------------------------------
+        # Whisper sira sayilarini cogu zaman RAKAMLA yaziyor ("3.yi sec",
+        # "6. konusma") ve sondaki ekleri kelimeye yapistiriyor. Kelime ici
+        # nokta tokenizer'da bolunmedigi icin "6.yi" tek parca gelir: "6yi".
+        # Fonetik kaymalar da ayni kalibi izliyor ("altinci" -> "altin").
+        "birinci": ["birinci", "1", "1i", "1inci", "birici", "birinchi", "birnci", "1nci"],
+        "ikinci": ["ikinci", "2", "2yi", "2nci", "ikinchi", "ikindi", "iknci", "2inci"],
+        "ucuncu": ["ucuncu", "3", "3u", "3uncu", "ucunchu", "ucncu", "ucuncuk", "3yu", "3yi", "3ncu"],
+        "dorduncu": ["dorduncu", "4", "4u", "4uncu", "dordunchu", "dordncu", "4yu", "4ncu"],
+        "besinci": ["besinci", "5", "5i", "5inci", "besinchi", "besnci", "5yi", "5nci"],
+        "altinci": ["altinci", "6", "6yi", "6nci", "altin", "altinchi", "altnci", "6yı", "6inci"],
+        "yedinci": ["yedinci", "7", "7yi", "7nci", "yedinchi", "7inci"],
+        "sekizinci": ["sekizinci", "8", "8i", "8inci", "8nci"],
+        "dokuzuncu": ["dokuzuncu", "9", "9u", "9uncu", "9ncu"],
+        "onuncu": ["onuncu", "10", "10u", "10uncu", "10ncu"],
+        # Belirtme hali ("ucuncuyu sec") ayri bir kelime olarak eslesir.
+        "birinciyi": ["birinciyi", "1i", "1inciyi", "biriciyi", "birinciy", "1yi"],
+        "ikinciyi": ["ikinciyi", "2yi", "2nciyi", "ikinciy", "ikindiyi", "2inciyi"],
+        "ucuncuyu": ["ucuncuyu", "3u", "3uncuyu", "ucuncuy", "ucuncuu", "3yu", "3yi"],
+        "dorduncuyu": ["dorduncuyu", "4u", "4uncuyu", "dorduncuy", "4yu"],
+        "besinciyi": ["besinciyi", "5i", "5inciyi", "besinciy", "5yi"],
+        "altinciyi": ["altinciyi", "6yi", "6nciyi", "altinciy", "altiniyi", "6yı"],
+        # Sayi sozcukleri de rakamla gelebiliyor ("iki sec mahmut").
+        "bir": ["bir", "1", "birr"],
+        "iki": ["iki", "2", "ikki", "iik"],
+        "uc": ["uc", "3", "uch", "ucc"],
+        "dort": ["dort", "4", "dort", "dorrt"],
+        "bes": ["bes", "5", "bess", "besh"],
+        "alti": ["alti", "6", "alt", "altii"],
+
         },
         "tts": {
             "announce_template": "{name} mesajını okuyorum.",
@@ -151,7 +181,7 @@ PACKS: dict[str, dict] = {
             "cut": ["cut", "cat", "cot", "kut", "cud", "gut"],
             "quiet": ["quiet", "quite", "quaint", "kwiet", "quied"],
             "enough": ["enough", "enuf", "inaf", "enuff"],
-            "ok": ["ok", "okay", "okey", "oke", "okeh", "o k"],
+            "ok": ["ok", "okay", "okey", "oke", "okeh"],
             "send": ["send", "sent", "sand", "sends", "sendt"],
             "list": ["list", "lists", "liszt", "lust", "least"],
             "reply": ["reply", "replay", "repli", "reaply"],
@@ -166,7 +196,20 @@ PACKS: dict[str, dict] = {
             "microphone": ["microphone", "mic", "mike", "micro", "mikrofon",
                            "microfone", "microphon"],
             "mute": ["mute", "mut", "moot", "mewt"],
-            "unmute": ["unmute", "un mute", "unmut", "onmute"],
+            "unmute": ["unmute", "unmut", "onmute"],
+
+        # --- Ordinals ------------------------------------------------------
+        # Transcription often writes ordinals as digits ("3rd one", "6.").
+        "first": ["first", "1", "1st", "firs", "furst"],
+        "second": ["second", "2", "2nd", "secon", "sekond"],
+        "third": ["third", "3", "3rd", "thrid", "turd"],
+        "fourth": ["fourth", "4", "4th", "forth"],
+        "fifth": ["fifth", "5", "5th", "fift"],
+        "sixth": ["sixth", "6", "6th", "sixt"],
+        "seventh": ["seventh", "7", "7th"],
+        "eighth": ["eighth", "8", "8th", "eigth"],
+        "ninth": ["ninth", "9", "9th"],
+        "tenth": ["tenth", "10", "10th"],
         },
         "tts": {
             "announce_template": "Message from {name}.",

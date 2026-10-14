@@ -93,6 +93,10 @@ def word_eq(spoken: str, target: str) -> bool:
         return True
     if _dedup(spoken) == _dedup(target):
         return True
+    # RAKAM iceren yazimlarda tolerans YOK: "1inci" ile "5inci" arasinda tek
+    # harf fark var, bulanik esitlik 5. sirayi 1. sira sanıyordu.
+    if any(ch.isdigit() for ch in spoken) or any(ch.isdigit() for ch in target):
+        return False
     if len(target) >= 4:
         return _edit_distance_le1(spoken, target)
     return False
