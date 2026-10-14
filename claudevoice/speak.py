@@ -133,6 +133,7 @@ class Speaker:
         # None: sistem varsayilani. Secili cihazda `say` yolu kullanilamaz
         # (surec sistem cikisina calar), bu yuzden render yolu zorunlu olur.
         self.output_device = None
+        self._play_broken = False     # bu cihazda kendi calma yolumuz patladi
         self._last_text = ""
         self._last_end = 0.0
         self._pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="tts-render")
@@ -257,6 +258,25 @@ class Speaker:
             with self._lock:
                 self._proc = None
 
+    def _is_default_output(self) -> bool:
+        """Secili cikis zaten sistem varsayilani mi?
+
+        Oyleyse kendi calma yolumuza gerek yok, `afplay` ayni cihaza calar.
+        Ayni Bluetooth cihazi hem giris hem cikis olarak acilinca PortAudio
+        -9986 (paInternalError) veriyor; bu kontrol o durumu bastan onluyor.
+        """
+        if self.output_device is None:
+            return True
+        try:
+            import sounddevice as sd
+            want = self.output_device
+            cur = sd.query_devices(kind="output")
+            if isinstance(want, int):
+                return int(cur["index"]) == want
+            return str(cur["name"]).strip().lower() == str(want).strip().lower()
+        except Exception:
+            return False
+
     def _play_file(self, path: str) -> bool:
         """Sesi sounddevice ile calar, her blokta GUNCEL seviyeyi uygular.
 
@@ -296,7 +316,10 @@ class Speaker:
                         pass
             return True
         except Exception as exc:
-            print(f"[tts] çalma hatası ({exc!r}), afplay'e dönülüyor")
+            # Bir kez patladiysa her mesajda tekrar denemeye gerek yok.
+            if not self._play_broken:
+                print(f"[tts] çalma hatası ({exc!r}), bundan sonra afplay")
+            self._play_broken = True
             return False
 
     def _say(self, voice: str, rate: int, text: str) -> None:
@@ -319,7 +342,17 @@ class Speaker:
             out, workdir = render.build(segments, pause_between=pause)
             if out:
                 try:
-                    if not self._play_file(out):
+                    # Seviye %100 ve ozel cikis cihazi yoksa `afplay` ile cal.
+                    # Kendi blok blok calma yolumuz Whisper calisirken
+                    # altta kalip cizirtiya yol aciyor; afplay ayri surec,
+                    # CoreAudio tamponunu kendi yonetiyor ve temiz caliyor.
+                    # Seviye degistirilecekse (canli kaydirak) kendi yolumuz
+                    # gerekiyor, cunku afplay calarken seviye degismiyor.
+                    plain = (abs(self.volume - 1.0) < 0.001
+                             and self._is_default_output())
+                    if self._play_broken:
+                        plain = True
+                    if plain or not self._play_file(out):
                         self._spawn(["afplay", out])
                 finally:
                     shutil.rmtree(workdir, ignore_errors=True)

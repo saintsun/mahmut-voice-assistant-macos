@@ -228,8 +228,11 @@ DEFAULTS = {
         # Okuma sirasinda mikrofon AKISINI kapat (sadece mikrofon ve
         # hoparlor ayni kablosuz cihazsa). Akis acik kaldigi surece macOS
         # AirPods'u HFP profilinde tutuyor ve ses cizirtili caliyor.
-        # "auto" (varsayilan) | true (her zaman) | false (hic)
-        "release_mic_while_speaking": "auto",
+        # OLCUM: AirPods Pro 3'te acik mikrofon tek basina profili
+        # dusurmuyor, ses temiz kaliyor. Bu yuzden varsayilan KAPALI;
+        # okuma sirasinda sesli "kes" diyebilmek daha degerli.
+        # "auto" (paylasimli cihazda birak) | true | false (varsayilan)
+        "release_mic_while_speaking": False,
         "mic_cooldown_ms": 400,
         # Okumadan once hangi konusmadan geldigini soyler.
         #   "always"    -> her mesajda

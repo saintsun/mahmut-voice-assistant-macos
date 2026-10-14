@@ -570,6 +570,38 @@ seçim, tam ad önceliği, geçersiz seçim).
 
 ## Bluetooth kulaklıkta cızırtı
 
+Okuma AirPods'ta cızırtılı geliyordu. Teşhis için çal-dinle ile tek tek eledik:
+
+| test | sonuç |
+|---|---|
+| `afplay` ile tek parça | temiz |
+| `sounddevice` ile tek parça | temiz |
+| 9 parçalı birleştirme, `afplay` | temiz |
+| uygulamanın ffmpeg çıktısı, `afplay` | temiz |
+| **uygulamanın kendi okuması** | **cızırtılı** |
+
+Suçlu kendi çalma yolumuzdu: sesi blok blok biz yazıyorduk (seviye kaydırağı
+canlı çalışsın diye) ve Whisper aynı anda çalışırken bu döngü altta kalıp
+tampon açlığı yaratıyordu. `afplay` ayrı bir süreç, CoreAudio tamponunu kendi
+yönetiyor.
+
+- Ses seviyesi **%100** ve seçili çıkış sistem varsayılanıysa → `afplay`
+- Seviye %100'ün altındaysa → kendi yolumuz (afplay çalarken seviye
+  değiştirilemiyor)
+- Kendi yolumuz bir kez hata verirse bir daha denenmiyor (`_play_broken`)
+
+**PortAudio -9986:** panelden çıkış cihazı olarak aynı Bluetooth kulaklık
+seçilince `sounddevice` o cihazı açamıyor (giriş olarak zaten açık) ve her
+mesajda `Internal PortAudio error` verip afplay'e düşüyordu. Seçilen çıkış
+zaten sistem varsayılanıysa artık PortAudio hiç açılmıyor.
+
+> Yanlış teşhis: önce mikrofon akışının HFP'ye düşürdüğünü sanıp okuma
+> boyunca akışı kapatmıştık. Ölçtük: AirPods Pro 3'te mikrofon **açıkken de**
+> ses temiz. `audio.release_mic_while_speaking` varsayılanı `false` yapıldı,
+> okuma sürerken sesli "kes" yine çalışıyor.
+
+### Eski not: profil değişimi
+
 AirPods takılıyken okuma cızırtılı geliyordu. Sebep yazılım hatası değil,
 macOS'un profil değiştirmesi: **mikrofon akışı açık olduğu sürece** giriş ve
 çıkış aynı kablosuz cihazsa macOS A2DP'den HFP'ye düşüyor, oynatma dar bantlı

@@ -1495,6 +1495,7 @@ class ClaudeVoice(rumps.App):
         self.cfg.set("audio", "output_device", want or None)
         idx, name = resolve_output(self.cfg["audio"])
         self.speaker.output_device = idx
+        self.speaker._play_broken = False      # yeni cihazda tekrar dene
         if want and idx is None:
             return False, f"{want!r} bulunamadı, sistem varsayılanına dönüldü"
         return True, f"hoparlör: {name}"
