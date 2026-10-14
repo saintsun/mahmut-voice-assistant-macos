@@ -1,8 +1,8 @@
 #!/bin/bash
-# Panelin JavaScript'ini sozdizimi acisindan denetler.
-# Panel HTML'i Python string'i icinde yasadigi icin kacis karakterleri
-# kolayca bozulabiliyor; bozulunca sayfadaki HIC bir dugme calismiyor
-# ama hata hicbir yerde gorunmuyor. Her panel degisikliginden sonra calistir.
+# Checks the panel's JavaScript for syntax errors.
+# The panel HTML lives inside a Python string, so escape sequences
+# break easily; when they do, NO button on the page works
+# and the error shows up nowhere. Run it after every panel change.
 cd "$(dirname "$0")"
 command -v node >/dev/null || { echo "node yok, denetim atlandı"; exit 0; }
 PYTHONPATH=. ./.venv/bin/python - <<'PY' > /tmp/cv_panel.js

@@ -1,15 +1,16 @@
-"""Dil paketleri: komut kaliplari, yazim varyantlari ve sesli metinler.
+"""Language packs: command patterns, spelling sets and spoken replies.
 
-Turkce'de ogrendigimiz ders: Whisper ayni komutu her seferinde farkli
-yaziyor ("kes" -> çeşit / kiss / Chris). Ayni sorun her dilde var, sadece
-hatalarin bicimi degisiyor. Bu yuzden her dil kendi yazim setiyle geliyor.
+The lesson from Turkish: transcription writes the same command differently
+every time ("kes" -> çeşit / kiss / Chris). Every language has the same
+problem, only the shape of the errors differs, so each pack ships with its own
+spelling sets.
 
-{name} yerine kullanicinin sectigi cagri adi konur.
+{name} is replaced with the wake name the user picked.
 """
 from __future__ import annotations
 
 PACKS: dict[str, dict] = {
-    # ------------------------------------------------------------ TURKCE
+    # ------------------------------------------------------------ TURKISH
     "tr": {
         "label": "Türkçe",
         "voice_hint": "Yelda",
@@ -82,11 +83,11 @@ PACKS: dict[str, dict] = {
             "getir": ["getir", "gatir", "getiri", "yatir", "getirdim",
                       "getirdi", "getirin", "getirip", "getirem", "getirdin"],
             "liste": ["liste", "listeyi", "listemi", "listesi", "listeye"],
-        # --- Sira sayilari -------------------------------------------------
-        # Whisper sira sayilarini cogu zaman RAKAMLA yaziyor ("3.yi sec",
-        # "6. konusma") ve sondaki ekleri kelimeye yapistiriyor. Kelime ici
-        # nokta tokenizer'da bolunmedigi icin "6.yi" tek parca gelir: "6yi".
-        # Fonetik kaymalar da ayni kalibi izliyor ("altinci" -> "altin").
+        # --- Ordinals ------------------------------------------------------
+        # Transcription usually writes ordinals as DIGITS ("3.yi sec",
+        # "6. konusma") and glues the suffix onto them. A word-internal period
+        # does not split a token, so "6.yi" arrives as one piece: "6yi".
+        # Phonetic slips follow the same shape ("altinci" -> "altin").
         "birinci": ["birinci", "1", "1i", "1inci", "birici", "birinchi", "birnci", "1nci"],
         "ikinci": ["ikinci", "2", "2yi", "2nci", "ikinchi", "ikindi", "iknci", "2inci"],
         "ucuncu": ["ucuncu", "3", "3u", "3uncu", "ucunchu", "ucncu", "ucuncuk", "3yu", "3yi", "3ncu"],
@@ -97,14 +98,14 @@ PACKS: dict[str, dict] = {
         "sekizinci": ["sekizinci", "8", "8i", "8inci", "8nci"],
         "dokuzuncu": ["dokuzuncu", "9", "9u", "9uncu", "9ncu"],
         "onuncu": ["onuncu", "10", "10u", "10uncu", "10ncu"],
-        # Belirtme hali ("ucuncuyu sec") ayri bir kelime olarak eslesir.
+        # The accusative form ("ucuncuyu sec") matches as its own word.
         "birinciyi": ["birinciyi", "1i", "1inciyi", "biriciyi", "birinciy", "1yi"],
         "ikinciyi": ["ikinciyi", "2yi", "2nciyi", "ikinciy", "ikindiyi", "2inciyi"],
         "ucuncuyu": ["ucuncuyu", "3u", "3uncuyu", "ucuncuy", "ucuncuu", "3yu", "3yi"],
         "dorduncuyu": ["dorduncuyu", "4u", "4uncuyu", "dorduncuy", "4yu"],
         "besinciyi": ["besinciyi", "5i", "5inciyi", "besinciy", "5yi"],
         "altinciyi": ["altinciyi", "6yi", "6nciyi", "altinciy", "altiniyi", "6yı"],
-        # Sayi sozcukleri de rakamla gelebiliyor ("iki sec mahmut").
+        # Number words can arrive as digits too ("iki sec mahmut").
         "bir": ["bir", "1", "birr"],
         "iki": ["iki", "2", "ikki", "iik"],
         "uc": ["uc", "3", "uch", "ucc"],
@@ -149,7 +150,7 @@ PACKS: dict[str, dict] = {
                          "eleventh", "twelfth"],
         "select_verbs": ("select", "open", "switch", "go"),
         "phrases": {
-            # "stop" sadece DINLEMEYI durdurur; okumayi kesmek "cut"/"quiet".
+            # "stop" only halts LISTENING; "cut"/"quiet" stop the reading.
             "send": ["okay {name}", "ok {name}", "{name} send it",
                      "send it {name}", "send {name}", "{name} send",
                      "that's it {name}", "go ahead {name}", "over"],
@@ -238,7 +239,7 @@ def available() -> list[dict]:
 
 
 def build(code: str, name: str) -> dict | None:
-    """Pakedi cagri adiyla doldurup dondurur."""
+    """Returns the pack with the wake name filled in."""
     pack = PACKS.get(code)
     if pack is None:
         return None

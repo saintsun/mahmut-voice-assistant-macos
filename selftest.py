@@ -36,9 +36,9 @@ def main() -> int:
         except Exception as exc:
             fail(f"{mod} yuklenemedi: {exc}", "./setup.sh calistir.")
 
-    # AX izni SUREC bazindadir: bu script Mahmut.app degil, dolayisiyla
+    # The AX permission is PER PROCESS: this script is not Mahmut.app, so
     # burada "yok" cikmasi normaldir. Belirleyici olan calisan uygulamanin
-    # kendi bildirdigi durumdur (.state.json).
+    # the state the app itself reports (.state.json).
     print("\nİzinler (çalışan uygulamanın bildirdiği)")
     import json as _json
     import os as _os
@@ -121,7 +121,7 @@ def main() -> int:
         fail(f"Claude aranamadi: {exc}", "./setup.sh calistir.")
 
     try:
-        # Tek transcript yerine CANLI oturumlarin tamami izleniyor.
+        # All LIVE sessions are watched instead of a single transcript.
         from claudevoice.sessions import live_sessions
         ses = [x for x in live_sessions() if not x.routine]
         if ses:

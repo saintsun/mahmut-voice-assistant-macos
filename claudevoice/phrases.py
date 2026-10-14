@@ -1,10 +1,9 @@
-"""Telsiz usulu komut kelimelerini yakalar.
+"""Catches radio-style command words.
 
-Cagri adi Whisper tarafindan farkli yazilabilir (Mahmud, Mamut, Marmut),
-Turkce karakterleri de degisebilir. Bu yuzden eslesme:
-  1) ASCII'ye katlanmis normalize metin uzerinde,
-  2) kelime bazinda, 1 harf hataya toleransli (edit distance <= 1)
-yapilir.
+Transcription spells the wake name differently every time (Mahmud, Mamut,
+Marmut) and accented characters shift as well. Matching therefore runs:
+  1) over text folded to plain ASCII,
+  2) word by word, tolerating one wrong letter (edit distance <= 1).
 """
 from __future__ import annotations
 
@@ -18,15 +17,15 @@ _TR_MAP = str.maketrans({
     "û": "u", "Û": "u", "é": "e", "É": "e",
 })
 
-# Kelime ICINDEKI nokta/kesme isareti kelimeyi BOLMEZ: "6.yi" -> "6yi",
-# "Mahmut'un" -> "mahmutun". Whisper sira sayilarini boyle yaziyor ve
-# "6.yi sec mahmut" 4 parcaya bolununce 3 kelimelik kalip hic tutmuyordu.
+# A period or apostrophe INSIDE a word does NOT split it: "6.yi" -> "6yi",
+# "Mahmut'un" -> "mahmutun". Transcription writes ordinals that way, and
+# splitting "6.yi sec mahmut" into 4 tokens never matched a 3-word pattern.
 _W = r"[0-9A-Za-zÇĞİIÖŞÜçğıiöşü]"
 _WORD_RE = re.compile(rf"{_W}+(?:['’.]{_W}+)*")
 
 
 def fold(text: str) -> str:
-    """Turkce metni eslesme icin sade ASCII kucuk harfe indirger."""
+    """Folds text to plain lowercase ASCII for matching."""
     text = text.replace("'", "").replace("’", "").replace(".", "")
     text = text.translate(_TR_MAP)
     text = unicodedata.normalize("NFKD", text)
@@ -35,10 +34,10 @@ def fold(text: str) -> str:
 
 
 def tokenize(text: str) -> list[tuple[str, int, int]]:
-    """(normalize_kelime, baslangic_index, bitis_index) listesi dondurur.
+    """Returns a list of (normalized_word, start_index, end_index).
 
-    Index'ler ORIJINAL metne aittir; boylece terminator yakalandiginda
-    ham metni dogru yerden kesebiliriz.
+    The indices refer to the ORIGINAL text, so the raw message can be cut at
+    the right place once the terminator is found.
     """
     out = []
     for m in _WORD_RE.finditer(text):
@@ -49,16 +48,16 @@ def tokenize(text: str) -> list[tuple[str, int, int]]:
 
 
 def _edit_distance_le1(a: str, b: str) -> bool:
-    """a ile b arasindaki edit distance 1 veya daha az mi?"""
+    """Is the edit distance between a and b at most 1?"""
     if a == b:
         return True
     la, lb = len(a), len(b)
     if abs(la - lb) > 1:
         return False
-    if la == lb:                              # tek harf degisimi
+    if la == lb:                              # one letter replaced
         diff = sum(1 for x, y in zip(a, b) if x != y)
         return diff <= 1
-    if la > lb:                               # a'dan bir harf silinmis
+    if la > lb:                               # one letter deleted from a
         a, b, la, lb = b, a, lb, la
     i = j = 0
     skipped = False
@@ -75,7 +74,7 @@ def _edit_distance_le1(a: str, b: str) -> bool:
 
 
 def _dedup(word: str) -> str:
-    """Ard arda tekrar eden harfleri teke indirir: 'kess' -> 'kes'."""
+    """Collapses repeated letters: 'kess' -> 'kes'."""
     out = []
     for ch in word:
         if not out or out[-1] != ch:
@@ -84,17 +83,17 @@ def _dedup(word: str) -> str:
 
 
 def word_eq(spoken: str, target: str) -> bool:
-    """Kisa kelimelerde tam, 4+ harfli kelimelerde 1 hata toleransli esitlik.
+    """Exact for short words, one-letter tolerant from 4 letters up.
 
-    Her iki durumda da cift harf farki yok sayilir: Whisper "kes"i cogu zaman
-    "kess" diye yaziyor ve 3 harfli komutlar bulanik toleransa girmiyor.
+    Doubled letters are ignored either way: transcription usually writes "kes"
+    as "kess", and three-letter commands do not qualify for fuzzy matching.
     """
     if spoken == target:
         return True
     if _dedup(spoken) == _dedup(target):
         return True
-    # RAKAM iceren yazimlarda tolerans YOK: "1inci" ile "5inci" arasinda tek
-    # harf fark var, bulanik esitlik 5. sirayi 1. sira sanıyordu.
+    # NO tolerance for spellings that contain DIGITS: "1inci" and "5inci"
+    # differ by one letter, so fuzzy equality read the 5th item as the 1st.
     if any(ch.isdigit() for ch in spoken) or any(ch.isdigit() for ch in target):
         return False
     if len(target) >= 4:
@@ -103,7 +102,7 @@ def word_eq(spoken: str, target: str) -> bool:
 
 
 class Matcher:
-    """Konfigurasyondaki komut kaliplarini derleyip metinde arar."""
+    """Compiles the command patterns from the config and finds them in text."""
 
     def __init__(self, phrases_cfg: dict):
         self.name = fold(phrases_cfg.get("name", "mahmut"))
@@ -113,9 +112,9 @@ class Matcher:
         if self.name not in variants:
             variants.insert(0, self.name)
         self._variants = set(variants)
-        # Kelime setleri: Whisper ayni komutu cok farkli yazabiliyor
-        # ("kes" -> ces / kec / kiss / chris). Her kanonik kelime icin
-        # kabul edilen yazimlar burada toplanir.
+        # Spelling sets: transcription writes the same command in wildly
+        # different ways ("kes" -> ces / kec / kiss / chris). The accepted
+        # spellings for each canonical word are collected here.
         self._wordsets: dict[str, set[str]] = {}
         for canon, alts in (phrases_cfg.get("word_variants") or {}).items():
             c = fold(canon)
@@ -136,10 +135,10 @@ class Matcher:
 
     def _compile(self, items: list[str], variants: list[str] | None = None,
                  name: str | None = None) -> list[list[str]]:
-        """Her kalibi kelime listesine cevirir.
+        """Turns every pattern into a list of words.
 
-        Kelime setlerinde karsiligi olan her kelime tum yazim varyantlari
-        icin cogaltilir ("mahmut kes" -> mahmut/mamut/... x kes/ces/kec/...).
+        Each word that has a spelling set is expanded into all of its variants
+        ("mahmut kes" -> mahmut/mamut/... x kes/ces/kec/...).
         """
         out: list[list[str]] = []
         seen: set[tuple[str, ...]] = set()
@@ -151,7 +150,7 @@ class Matcher:
             for w in words:
                 alts = sorted(self._wordsets.get(w, {w}))
                 expansions = [e + [a] for e in expansions for a in alts]
-                if len(expansions) > 4000:      # patlamayi onle
+                if len(expansions) > 4000:      # keep the expansion from exploding
                     expansions = expansions[:4000]
             for e in expansions:
                 key = tuple(e)
@@ -166,10 +165,10 @@ class Matcher:
 
     def _split_merged(self, toks: list[tuple[str, int, int]]
                       ) -> list[tuple[str, int, int]]:
-        """Cagri adiyla komutun birlesik yazildigi durumu ayirir.
+        """Splits a wake name that got glued to the command.
 
-        Whisper bazen "Mahmutçes" diye tek kelime yaziyor; eslestirme iki
-        ayri kelime bekledigi icin komut kaciyordu.
+        Transcription sometimes writes "Mahmutçes" as one word; matching
+        expects two separate words, so the command used to slip through.
         """
         out: list[tuple[str, int, int]] = []
         for w, a, b in toks:
@@ -188,8 +187,8 @@ class Matcher:
 
     def _match_tail(self, toks: list[tuple[str, int, int]],
                     patterns: list[list[str]]) -> int | None:
-        """Kaliplardan biri token dizisinin SONUNDA geciyorsa, eslesmenin
-        orijinal metindeki baslangic index'ini dondurur."""
+        """If one of the patterns occurs at the END of the token sequence,
+        returns where the match starts in the original text."""
         for pat in patterns:
             n = len(pat)
             if n > len(toks):
@@ -207,8 +206,8 @@ class Matcher:
         return None
 
     def find_send(self, text: str) -> tuple[bool, str]:
-        """Metin bir gonderme kelimesiyle bitiyor mu?
-        (bitiyorsa True + komut kelimesi atilmis hali)."""
+        """Does the text end with a send phrase?
+        (If so: True plus the text with the command words removed.)"""
         toks = self._split_merged(tokenize(text))
         idx = self._match_tail(toks, self.send)
         if idx is None:
@@ -216,24 +215,24 @@ class Matcher:
         return True, text[:idx].strip(" \t\n,.;:-—–")
 
     def compile_extra(self, items: list[str]) -> list[list[str]]:
-        """Config'den gelen ozel kalip listesini derler (kisayol komutlari)."""
+        """Compiles an extra pattern list from the config (shortcut commands)."""
         return self._compile(items, sorted(self._variants), self.name)
 
     def find_tail(self, text: str,
                   patterns: list[list[str]]) -> tuple[bool, str]:
-        """Kaliplardan biri metnin sonunda mi? (evetse komuttan onceki metin)."""
+        """Is a pattern at the end of the text? (If so: the text before it.)"""
         idx = self._match_tail(self._split_merged(tokenize(text)), patterns)
         if idx is None:
             return False, text
         return True, text[:idx].strip(" \t\n,.;:-—–")
 
     def is_list(self, text: str) -> bool:
-        """"listeyi getir mahmut" — numarali listeyi sesli okur.
+        """"listeyi getir mahmut" - reads the numbered list aloud.
 
-        Ek olarak: kisa bir cumle "liste" ile BASLIYORSA cagri adi
-        taninmasa da kabul edilir. Whisper bu komutu sikca bozuyor
-        ("listeyi getir mahmut" -> "Listeyi yatırmamışım.") ve liste
-        okumak zararsiz oldugu icin gevsek davranmak guvenli.
+        Extra rule: a short sentence that STARTS with "liste" is accepted even
+        when the wake name was not recognised. Transcription mangles this
+        command often ("listeyi getir mahmut" -> "Listeyi yatırmamışım.") and
+        reading a list is harmless, so being lenient here is safe.
         """
         toks = self._split_merged(tokenize(text))
         if self._match_tail(toks, self.list) is not None:
@@ -241,12 +240,13 @@ class Matcher:
         if not toks or len(toks) > self._list_loose_max:
             return False
         words = [w for w, _, _ in toks]
-        # (a) "liste" ile BASLIYORSA
+        # (a) when it STARTS with "liste"
         if any(word_eq(words[0], v) for v in self._list_words):
             return True
-        # (b) kisa cumlede hem CAGRI ADI hem "getir/oku/say" varsa.
-        #     Gerekcesi: "listeyi getir mahmut" -> "Mahmut'u getirdim."
-        #     Sira ve ekler bozulabiliyor, ikisinin VARLIGI yeterli.
+        # (b) a short sentence containing both the WAKE NAME and a verb like
+        #     "getir/oku/say". Why: "listeyi getir mahmut" comes out as
+        #     "Mahmut'u getirdim." Word order and suffixes break, so the mere
+        #     PRESENCE of both is enough.
         has_name = any(self._claude_like(w) for w in words)
         verbs = (self._wordsets.get("getir", {"getir"})
                  | {"oku", "okur", "say", "sayar", "soyle"})
@@ -254,20 +254,20 @@ class Matcher:
         return has_name and has_verb
 
     def is_cut(self, text: str) -> bool:
-        """"mahmut kes" — sadece o anki okumayi keser, dinleme surer."""
+        """"mahmut kes" - stops the current reading only; listening goes on."""
         return self._match_tail(self._split_merged(tokenize(text)), self.cut) is not None
 
     def is_listen(self, text: str) -> bool:
-        """"mahmut start" — duraklatilmissa bile uyandirir."""
+        """"mahmut start" - wakes up even from a paused state."""
         return self._match_tail(self._split_merged(tokenize(text)), self.listen) is not None
 
     def is_sleep(self, text: str) -> bool:
-        """"mahmut stop" — derin uykuya alir."""
+        """"mahmut stop" - puts it into deep sleep."""
         return self._match_tail(self._split_merged(tokenize(text)), self.sleep) is not None
 
     def find_reply(self, text: str) -> tuple[bool, str]:
-        """Metin "cevap mahmut" ile bitiyor mu?
-        (bitiyorsa True + komuttan onceki metin — dikteye devam edilir)."""
+        """Does the text end with "cevap mahmut"?
+        (If so: True plus the text before it, so dictation continues.)"""
         toks = self._split_merged(tokenize(text))
         idx = self._match_tail(toks, self.reply)
         if idx is None:
@@ -275,8 +275,8 @@ class Matcher:
         return True, text[:idx].strip(" \t\n,.;:-—–")
 
     def find_switch(self, text: str) -> tuple[bool, str]:
-        """Metin bir oturum-secme kelimesiyle bitiyor mu?
-        (bitiyorsa True + onundeki oturum adi)."""
+        """Does the text end with a session-select phrase?
+        (If so: True plus the session name in front of it.)"""
         toks = self._split_merged(tokenize(text))
         idx = self._match_tail(toks, self.switch)
         if idx is None:
@@ -287,8 +287,8 @@ class Matcher:
         return self._match_tail(self._split_merged(tokenize(text)), self.cancel) is not None
 
     def find_wake(self, text: str) -> str | None:
-        """Uyandirma kelimesi gecerse SONRASINDAKI metni dondurur
-        (gecmiyorsa None). 'hey mahmut sunu yap' -> 'sunu yap'."""
+        """Returns the text AFTER the wake phrase when it occurs
+        (None otherwise). 'hey mahmut sunu yap' -> 'sunu yap'."""
         toks = self._split_merged(tokenize(text))
         for pat in self.wake:
             n = len(pat)

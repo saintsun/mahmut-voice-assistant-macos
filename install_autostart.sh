@@ -1,12 +1,12 @@
 #!/bin/bash
 # macOS acilisinda Mahmut'u otomatik baslatir.
-#   ./install_autostart.sh            -> kur
-#   ./install_autostart.sh --remove   -> kaldir
-#   ./install_autostart.sh --status   -> durum
+#   ./install_autostart.sh            -> install
+#   ./install_autostart.sh --remove   -> uninstall
+#   ./install_autostart.sh --status   -> status
 #
-# NOT: Baslatici script ~/Library/Application Support altina yazilir,
-# proje klasorune DEGIL. Proje ~/Desktop altinda ve macOS orayi TCC ile
-# koruyor; launchd oradaki bir scripti calistiramiyor ("Operation not
+# NOTE: the launcher script is written under ~/Library/Application Support,
+# NOT into the project folder. A project under ~/Desktop is TCC protected by
+# protected; launchd cannot run a script from there ("Operation not
 # permitted", exit 126).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -36,17 +36,17 @@ mkdir -p "$HOME/Library/LaunchAgents" "$SUP"
 
 cat > "$SUP/autostart.sh" <<INNER
 #!/bin/bash
-# LaunchAgent bunu cagirir: uygulama kapaliysa baslatir.
+# The LaunchAgent calls this: it starts the app when it is not running.
 APP="$ROOT/Mahmut.app"
 
 # Surec ADINA gore tam eslesme. 'pgrep -f' kullanilmaz: komut satirinda bu
-# metin gecen baska bir surec (ornegin bir terminal) yanlis pozitif verir.
+# another process containing that text (a terminal, say) is a false positive.
 if pgrep -x Mahmut >/dev/null 2>&1; then
   exit 0
 fi
 
-# Dogrudan ikiliyi calistirmak yerine 'open': uygulama LaunchServices
-# uzerinden acilir, Erisilebilirlik/Mikrofon izinleri gecerli kalir.
+# 'open' instead of running the binary directly: LaunchServices then
+# opens it through LaunchServices, so Accessibility/Microphone stay valid.
 exec /usr/bin/open -a "\$APP"
 INNER
 chmod +x "$SUP/autostart.sh"

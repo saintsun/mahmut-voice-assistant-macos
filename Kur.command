@@ -1,8 +1,8 @@
 #!/bin/bash
-# Finder'dan CIFT TIKLA: Terminal acilir ve kurulum baslar.
+# DOUBLE-CLICK from Finder: a terminal opens and the install starts.
 cd "$(dirname "$0")"
-# Internetten indirilmis dosyalarda macOS karantina bayragi olur; kendi
-# klasorumuzden temizliyoruz ki "gelistirici dogrulanamadi" cikmasin.
+# Files downloaded from the internet carry the macOS quarantine flag; it is
+# cleared for our own folder so no "unidentified developer" dialog appears.
 xattr -dr com.apple.quarantine . 2>/dev/null || true
 chmod +x ./*.sh ./*.command 2>/dev/null || true
 clear

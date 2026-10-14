@@ -1,7 +1,8 @@
-"""Tarayicida acilan kontrol paneli.
+"""The control panel that opens in a browser.
 
-Sadece 127.0.0.1'e baglanir. Uygulamanin durumunu gosterir ve dugmelerle
-sesli komutlarin aynisini calistirir (kes / dur / basla / kisayol / gecis).
+Binds to 127.0.0.1 only. Shows the application's state and runs exactly the
+same actions as the voice commands through buttons (cut / stop / start /
+shortcut / switch).
 """
 from __future__ import annotations
 
@@ -32,9 +33,9 @@ body{
     linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);
   background-attachment:fixed;
 }
-/* Genis pencerede her sey yayilmasin: ortalanmis sabit genislik. */
+/* Keep content from spreading on a wide window: centred, fixed width. */
 .nav,.chips,section[data-p]{max-width:920px;margin-left:auto;margin-right:auto}
-/* Dugmeler sonsuza kadar uzamasin, satira sigdigi kadar buyusun. */
+/* Buttons should not stretch forever, only as far as the row allows. */
 button{min-width:0}
 .tabs button{flex:0 0 auto;max-width:none}
 .hd button,.fav button,.sess button,.vform button,.set button,
@@ -88,8 +89,8 @@ border:1px solid var(--line);border-radius:999px;color:var(--fg);
 padding:7px 12px;font-size:12.5px;font-family:inherit;cursor:pointer}
 .navsel:hover{border-color:rgba(0,229,255,.45);box-shadow:var(--glow)}
 .navsel:focus{outline:none;border-color:rgba(0,229,255,.55)}
-/* Durum metni headeri tasiriyordu: artik sagda bildirim olarak cikiyor,
-   headerda sadece durum ikonu kaliyor. */
+/* The status text overflowed the header: it now appears as a toast on the
+   right and only the state icon stays in the header. */
 .navst{flex:0 0 auto;font-size:15px;line-height:1;min-width:24px;text-align:center}
 .toasts{position:fixed;top:16px;right:18px;z-index:120;display:flex;
   flex-direction:column;gap:9px;align-items:flex-end;pointer-events:none}
@@ -98,16 +99,16 @@ padding:7px 12px;font-size:12.5px;font-family:inherit;cursor:pointer}
   background:rgba(13,19,33,.95);border:1px solid var(--line);
   box-shadow:0 14px 34px rgba(0,0,0,.55);backdrop-filter:blur(12px);
   transform-origin:top right;
-  /* requestAnimationFrame gizli sekmede DURUYOR; o yuzden giris animasyonu
-     JS sinifina degil, dogrudan CSS'e bagli. */
-  /* Gizli sekmede CSS animasyonlari DONUYOR ve balon baslangic karesinde
-     (opacity:0) takili kaliyordu. Bu yuzden varsayilan hal gorunur;
-     giris animasyonu yalnizca sekme onde iken eklenir (.anim). */
+  /* requestAnimationFrame STOPS in a hidden tab, so the entry animation is
+     driven by CSS instead of a JS class. */
+  /* CSS animations FREEZE in a hidden tab and the toast stayed stuck on its
+     first frame (opacity:0). The resting state is therefore visible and the
+     entry animation is only added while the tab is in front (.anim). */
   opacity:1}
 .toast.anim{animation:tIn .26s cubic-bezier(.2,.9,.3,1.2)}
-/* Giris animasyonu SADECE transform oynatir. Opacity oynatilirsa, sekme
-   arka planda cizim yapmadiginda animasyon ilk karede donup kaliyor ve
-   bildirim hic gorunmuyor (olculdu). */
+/* The entry animation moves ONLY transform. Animating opacity means the
+   animation freezes on its first frame when the tab is not painting in the
+   background, and the toast never shows up (measured). */
 @keyframes tIn{from{transform:translate(12px,-8px) scale(.96)}
   to{transform:none}}
 .toast.out{animation:tOut .24s ease forwards}
@@ -160,7 +161,7 @@ position:relative;overflow:hidden}
 background:linear-gradient(90deg,transparent,rgba(0,229,255,.55),transparent)}
 .lbl{color:var(--dim);font-size:10.5px;text-transform:uppercase;
 letter-spacing:.17em;margin-bottom:11px;font-weight:600}
-/* Okuma / Dinleme / Kısayollar kartlari yan yana. */
+/* Reading / Listening / Shortcuts cards side by side. */
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;
 align-items:stretch;margin-bottom:13px}
 .g3 .card{margin-bottom:0;height:100%;display:flex;flex-direction:column}
@@ -170,17 +171,17 @@ align-items:stretch;margin-bottom:13px}
 .g3 .swrow{padding-bottom:11px}
 .g3 .swrow .t{font-size:13px}
 @media (max-width:880px){.g3{grid-template-columns:1fr}}
-/* Tampon solda yarim, kayitlar sagda. */
+/* Buffer takes the left half, the archive sits on the right. */
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:13px;
 align-items:stretch;margin-bottom:13px}
 .g2 .card{margin-bottom:0;display:flex;flex-direction:column;min-height:290px}
 .g2 .addrow input{font-size:12.5px;padding:7px 10px}
-/* Iki kutu ayni boyda: ic alanlar bosluga yayilsin. */
+/* Both cards the same height: inner areas fill the space. */
 .g2 .buf{flex:1}
 .g2 .hist{flex:1;max-height:none;min-height:150px}
 @media (max-width:880px){.g2{grid-template-columns:1fr}}
 
-/* Üçlü ızgara: kutular yayılmasın, yan yana dursun. */
+/* Three-column grid: cards stay side by side instead of spreading. */
 .row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
 @media (max-width:620px){.row{grid-template-columns:repeat(2,1fr)}}
 @media (max-width:400px){.row{grid-template-columns:1fr}}
@@ -899,7 +900,7 @@ function setLoc(l){ LOC=l;
 try{ const sl=localStorage.getItem("vp_loc"); if(sl) LOC=sl; }catch(e){}
 let BOOT=null, SETTOUCH=0, COPEN=null, CDET=null, PEDIT=null, CAP={key:null,text:""};
 async function cmdOpen(k){
-  if(COPEN!==k) MMSG="";          // baska komuta gecince eski sonucu silme
+  if(COPEN!==k) MMSG="";          // clear the old result when a different command is opened
   COPEN=k; CDET=null;
   document.getElementById("modal").style.display="flex";
   document.getElementById("mTitle").textContent="…";
@@ -1137,9 +1138,9 @@ async function go(a,arg){
 }
 function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 let LASTST=null, LASTLINK=true;
-// Bildirim rengi durum metnine gore secilir (tr + en anahtar kelimeler).
+// The toast colour follows the status text (Turkish + English keywords).
 const TKIND=[
-  // "zaten ekli", "kaldırılamaz" gibi durumlar hata DEGIL: islem yapilmadi.
+  // "already added" / "cannot be removed" are NOT errors: nothing happened.
   ["warn", /zaten|already|kaldırılamaz|kaldirilamaz|hazır değil|hazir degil|duraklat|uyku|kapalı|kapali|kesildi|iptal|bekl|paused|sleep|off|cancel|stopped/i],
   ["err",  /hata|başarısız|basarisiz|geçersiz|gecersiz|bulunamadı|bulunamadi|izin yok|error|failed|invalid|not found/i],
   ["ok",   /eklendi|kaldırıldı|kaldirildi|kaydedildi|seçildi|secildi|güncellendi|guncellendi|temizlendi|gönderildi|gonderildi|başarılı|basarili|hazır|hazir|added|removed|saved|sent|ready|done/i],
@@ -1183,7 +1184,7 @@ async function portSave(){
   if(PORTOK===null) return;
   const r=await go('set_panel_port', String(PORTOK));
   if(r&&r.msg) toast(r.msg, toastKind(r.msg));
-  // Panel yeni porta tasiniyor: sayfayi oraya goturelim.
+  // The panel is moving to a new port: take the page with it.
   setTimeout(()=>{ location.href="http://127.0.0.1:"+PORTOK+"/"; }, 1200);
 }
 function saveHk(){
@@ -1196,7 +1197,7 @@ function renderDevices(d){
   const fill=(id, rows, cur, autoKey, active)=>{
     const el=document.getElementById(id); if(!el) return;
     const sig=rows.map(x=>x.name).join("|")+"/"+cur+"/"+(active||"");
-    if(el.dataset.sig===sig) return;        // her tikta yeniden cizme
+    if(el.dataset.sig===sig) return;        // do not redraw on every tick
     el.dataset.sig=sig;
     const auto=t(autoKey)+(active?" — "+active:"");
     el.innerHTML=`<option value=""${cur?"":" selected"}>${esc(auto)}</option>`
@@ -1210,7 +1211,7 @@ function renderTargets(d){
   const el=document.getElementById("stTarget"); if(!el) return;
   const list=d.targets||[];
   const sig=list.map(x=>x.code+x.enabled).join("|")+"/"+(d.target||"");
-  if(el.dataset.sig===sig) return;      // her tikta yeniden cizme
+  if(el.dataset.sig===sig) return;      // do not redraw on every tick
   el.dataset.sig=sig;
   el.innerHTML=list.map(x=>
     `<option value="${esc(x.code)}"${x.enabled?"":" disabled"}${x.code===d.target?" selected":""}>`
@@ -1225,13 +1226,13 @@ async function tick(){
   const st=d.speaking?"🔊":(ICON[d.state]||"⚪️");
   document.getElementById("ttl").textContent=st;
   document.getElementById("ttl").title=d.status||"";
-  // Durum degistiyse sagda bildirim goster (ilk acilista gosterme)
+  // Show a toast when the status changed (not on the first load)
   const sv=d.status||"";
   if(LASTST===null) LASTST=sv;
   else if(sv!==LASTST){ LASTST=sv; toast(sv, toastKind(sv)); }
   document.title="Mahmut: Voice Assistant"+(d.speaking?" 🔊":"");
   document.getElementById("dot").style.background=d.speaking?"#2ecc71":(COLOR[d.state]||"#8b93a5");
-  // Kullanici az once dokunduysa 1.5 sn guncelleme yapma (carpismasin)
+  // If the user just touched it, skip updates for 1.5 s so they do not fight
   if(Date.now()-TOUCH>1500){ document.getElementById("swTts").checked=!!d.tts_enabled; }
   if(Date.now()-VTOUCH>1500){
     const pct=Math.round((d.volume==null?1:d.volume)*100);
@@ -1244,7 +1245,7 @@ async function tick(){
   const b=document.getElementById("buf");
   b.textContent=d.buffer||t("empty"); b.className="buf"+(d.buffer?" has":"");
   document.getElementById("heard").textContent=d.last_transcript?(t("lastheard")+d.last_transcript):"";
-  // Uygulama yeniden baslatildiysa sayfayi tazele (yeni sekme acmaya gerek yok)
+  // Reload the page when the app restarted (no need to open a new tab)
   if(d.boot){ if(BOOT===null) BOOT=d.boot; else if(BOOT!==d.boot){ location.reload(); return; } }
   HIST=d.history||[]; CMDS=d.commands||[];
   renderTargets(d);
@@ -1262,7 +1263,8 @@ async function tick(){
   const ce=document.getElementById("cmds");
   if(ce && !PEDIT && !ce.innerHTML) renderCmds();
   if(COPEN!==null && capCh) renderModal();
-  // Komut testi mikrofonu: duyulan metni kutuya yaz ve SONUCU hemen goster
+  // Command-test microphone: put the heard text in the box and show the
+  // RESULT right away
   const tm=document.getElementById("tstMic");
   if(tm) tm.classList.toggle("rec", CAP.key==="__test__");
   if(CAP.key==="__test__" && CAP.text && capCh){
@@ -1270,14 +1272,14 @@ async function tick(){
     if(ti){ ti.value=CAP.text; testRun(); }
     go('capture_cancel');
   }
-  // Form acikken arsivi YENIDEN CIZME: her yenilemede DOM silinince
-  // acilir liste kapaniyordu.
+  // Do NOT redraw the archive while a form is open: wiping the DOM on every
+  // refresh closed the dropdown.
   if(VAROPEN!==null){ renderRest(d); return; }
   renderHist();
   renderRest(d);
 }
 let HPAGE=0;
-const HPER=8;                       // sayfa basina satir
+const HPER=8;                       // rows per page
 function histPages(){ return Math.max(1, Math.ceil(HIST.length/HPER)); }
 function histGo(d){
   HPAGE=Math.min(histPages()-1, Math.max(0, HPAGE+d));
@@ -1294,14 +1296,14 @@ function renderPager(){
     + `<span style="margin-left:6px">${t("rowcount",{n:HIST.length})}</span>`;
 }
 function renderHist(){
-  // Liste kisaldiysa (temizleme) acik sayfayi geri cek.
+  // If the list shrank (cleared), pull the open page back.
   if(HPAGE > histPages()-1) HPAGE=histPages()-1;
   const from=HPAGE*HPER, page=HIST.slice(from, from+HPER);
   renderPager();
   document.getElementById("hist").innerHTML=HIST.length?page.map((h,j)=>{
-    const i=from+j;                 // MUTLAK sira: "+" formu buna baglı
-    // DIKKAT: sablon `return` ile AYNI satirda baslamali; alt satira
-    // atilirsa JavaScript araya noktali virgul koyup undefined donduruyor.
+    const i=from+j;                 // ABSOLUTE index: the "+" form depends on it
+    // CAREFUL: the template must start on the SAME line as `return`; on the
+    // next line JavaScript inserts a semicolon and returns undefined.
     return `<div class="hrow" onclick="copyOne(${i},this)"><span class="tm">${esc(h.t)}</span>
      <span class="tx">${esc(h.text)}</span>
      <span class="rs${h.fired?" fire":""}">${esc(h.result||"")}</span>
@@ -1432,9 +1434,9 @@ class _Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.path.startswith("/api/action"):
             return self._send(404, "yok", "text/plain; charset=utf-8")
-        # Tarayicidaki herhangi bir site 127.0.0.1'e "basit" bir POST
-        # atabilir (text/plain preflight'siz gecer) ve komut calistirabilirdi.
-        # Kendi sayfamiz disindan gelen istekleri reddediyoruz.
+        # Any site in the browser can send a "simple" POST to 127.0.0.1
+        # (text/plain passes without a preflight) and could run a command.
+        # Requests from anywhere but our own page are rejected.
         origin = self.headers.get("Origin")
         if origin and origin not in (f"http://127.0.0.1:{self.server.server_address[1]}",
                                      f"http://localhost:{self.server.server_address[1]}"):
@@ -1444,8 +1446,8 @@ class _Handler(BaseHTTPRequestHandler):
             n = int(self.headers.get("Content-Length") or 0)
             req = json.loads(self.rfile.read(n) or b"{}")
             self.app.panel_action(req.get("action"), req.get("arg"))
-            # Sonucu ilgili yerde (komut penceresinde) gosterebilmek icin
-            # mesaji geri veriyoruz; sadece sag ustteki durum yetmiyor.
+            # The message is returned so it can be shown where it belongs
+            # (the command dialog); the status line alone is not enough.
             body = json.dumps({"ok": True,
                                "msg": getattr(self.app, "_amsg", "")})
         except Exception as exc:
@@ -1488,17 +1490,13 @@ class Panel:
         return f"http://127.0.0.1:{self.port}/"
 
     def start(self) -> bool:
-        """Istenen porttan baslar; doluysa siradaki bos portu dener.
-
-        Port baskasindaysa panel hic acilmiyordu ve bunu yalnizca loga
-        bakarak anlardin.
-        """
+        """Starts on the requested port, or the next free one if it is taken."""
         handler = type("H", (_Handler,), {"app": self.app})
         wanted = int(self.port)
         last = None
         for port in [wanted + i for i in range(10)] + [0]:
             try:
-                # Sadece yerel arayuz: disaridan erisilemez.
+                # Loopback only: unreachable from outside.
                 self.server = ThreadingHTTPServer(("127.0.0.1", port), handler)
             except OSError as exc:
                 last = exc

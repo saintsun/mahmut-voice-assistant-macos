@@ -2,17 +2,18 @@
 # Mahmut.app bundle'ini uretir.
 #
 # Python, bundle'in ICINDE calisir: launcher libpython'a baglanip Py_BytesMain
-# cagiriyor, yani ayri bir surec baslatmiyor. Eskiden bundle disindaki venv
-# python'u exec ediliyordu; o zaman surecin bundle'i Python.app oluyor ve
+# so no separate process is started. It used to exec the venv python from
+# outside the bundle, which made the process belong to Python.app and
 # Dock'ta "Python" + roket ikonu gorunuyordu.
 #
-# Apple Developer hesabi GEREKMEZ: ad-hoc imza (codesign -s -) yerel calisir.
+# NO Apple Developer account is needed: an ad-hoc signature (codesign -s -)
+# works locally.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP="$ROOT/Mahmut.app"
 PYBIN="$ROOT/.venv/bin/python3"
 BUNDLE_ID="com.erengunes.mahmut"
-# Surum TEK kaynaktan gelir: claudevoice/__init__.py
+# The version comes from ONE source: claudevoice/__init__.py
 VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$ROOT/claudevoice/__init__.py")"
 [ -n "$VERSION" ] || VERSION="0.0.0"
 
@@ -27,10 +28,10 @@ PY_HOME="$("$PYBIN" -c 'import sys;print(sys.base_prefix)')"
 VENV_SITE="$("$PYBIN" -c 'import site;print(site.getsitepackages()[0])')"
 
 # --- Idempotent build ---------------------------------------------------
-# ad-hoc imza SABIT kimlik vermez; imza cdhash tabanlidir. Launcher ikilisi
-# ya da Info.plist degisirse macOS'un verdigi Erisilebilirlik izni GECERSIZ
-# olur. Python kodu bundle'in DISINDA durdugu icin kodu istedigin kadar
-# degistirirsin; izin bozulmaz.
+# an ad-hoc signature gives no STABLE identity; it is cdhash based. Whenever
+# the launcher binary or Info.plist changes, the Accessibility grant becomes
+# invalid. The Python code lives OUTSIDE the bundle, so you can change it
+# as much as you like without breaking the permission.
 FORCE=0
 [ "${1:-}" = "--force" ] && FORCE=1
 FINGERPRINT="$(printf '%s|%s|%s|%s' "$ROOT" "$PY_HOME" "$VENV_SITE" "v3-embedded" \
@@ -86,7 +87,7 @@ cc -O2 -Wall \
    -o "$APP/Contents/MacOS/Mahmut" "$ROOT/.launcher.c"
 rm -f "$ROOT/.launcher.c"
 
-# Ikon: assets/Mahmut.icns yoksa uret (pyobjc ile, ek bagimlilik yok)
+# Icon: build assets/Mahmut.icns if missing (via pyobjc, no extra deps)
 [ -f "$ROOT/assets/Mahmut.icns" ] || "$PYBIN" "$ROOT/make_icon.py" >/dev/null
 cp "$ROOT/assets/Mahmut.icns" "$APP/Contents/Resources/Mahmut.icns"
 
@@ -113,18 +114,19 @@ cat > "$APP/Contents/Info.plist" <<P
 P
 
 # ---------------------------------------------------------------------
-# ONEMLI: "--sign -" AD-HOC imzadir; makinedeki hicbir Developer ID /
-# kurum sertifikasi KULLANILMAZ, keychain'e dokunulmaz. Buraya gercek bir
-# kimlik yazma: dagitilan ikili o kurumun adina imzalanmis olur.
+# IMPORTANT: "--sign -" is an AD-HOC signature; no Developer ID or company
+# certificate on this machine is USED and the keychain is never touched.
+# Do not put a real identity here: the distributed binary would then be
+# signed in that organisation's name.
 # ---------------------------------------------------------------------
 codesign --force --sign - --identifier "$BUNDLE_ID" \
          --timestamp=none "$APP" >/dev/null 2>&1 \
   && echo "imzalandi (ad-hoc)" || echo "UYARI: codesign basarisiz, app yine de calisir"
 
-# Guvenlik agi: imza gercekten ad-hoc mi? Degilse imzayi kaldir.
-# NOT: `codesign ... | grep -q` KULLANMA. grep eslesince erken cikiyor,
-# codesign SIGPIPE ile oluyor ve `set -o pipefail` yuzunden pipeline
-# BASARISIZ sayiliyordu; imza dogruyken "yanlis" deyip siliyordu.
+# Safety net: is the signature really ad-hoc? If not, strip it.
+# NOTE: do NOT use `codesign ... | grep -q`. grep exits early, codesign dies
+# of SIGPIPE and `set -o pipefail` marks the pipeline as FAILED, so a valid
+# signature was declared wrong and removed.
 SIG="$(codesign -dv --verbose=4 "$APP" 2>&1 || true)"
 case "$SIG" in
   *"Signature=adhoc"*)
@@ -135,6 +137,6 @@ case "$SIG" in
 esac
 
 printf '%s' "$FINGERPRINT" > "$STAMP"
-touch "$APP"          # Dock/Finder ikon onbellegini tazele
+touch "$APP"          # refresh the Dock/Finder icon cache
 
 echo "hazir: $APP"

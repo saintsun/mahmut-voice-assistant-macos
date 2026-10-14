@@ -1,5 +1,5 @@
 #!/bin/bash
-# Mahmut'un ne duyduğunu canlı izler. Konuş, burada ne anladığını gör.
+# Live view of what Mahmut hears. Speak, and see what it understood.
 cd "$(dirname "$0")"
 echo "Konuş — Mahmut'un duyduğu metin burada görünecek. Çıkmak için Ctrl+C."
 echo "----------------------------------------------------------------"

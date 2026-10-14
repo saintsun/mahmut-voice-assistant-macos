@@ -1,10 +1,11 @@
-"""Metni Claude.app'in yazma alanina birakip Enter'a basar.
+"""Drops text into Claude.app's composer and presses Enter.
 
-Yontem: panoya yaz -> Claude'u one al -> Cmd+V -> Enter -> eski uygulamaya don.
-Electron/React composer'i Accessibility ile dogrudan set etmek React state'ini
-guncellemedigi icin guvenilir degil; pano yolu her surumde calisir.
+The route: write to the clipboard -> bring Claude to the front -> Cmd+V ->
+Enter -> return to the previous app. Setting an Electron/React composer
+directly through Accessibility is unreliable because it does not update React
+state; the clipboard route works across versions.
 
-Odak ~250ms Claude'a gecer, sonra geri verilir.
+Focus moves to Claude for about 250 ms and is then handed back.
 """
 from __future__ import annotations
 
@@ -37,9 +38,9 @@ MODIFIERS = {
     "ctrl": kCGEventFlagMaskControl, "control": kCGEventFlagMaskControl,
 }
 
-# Degistirici tuslarin FIZIKSEL kodlari. Bazi uygulamalar (ozellikle Electron)
-# sadece olay bayragina bakmiyor, gercek flagsChanged olaylarini bekliyor;
-# bu yuzden modifier'lar ayrica bas/birak olarak gonderilir.
+# PHYSICAL key codes for the modifiers. Some apps (Electron ones especially)
+# do not look at the event flag alone and expect real flagsChanged events, so
+# modifiers are also sent as separate key down/up events.
 MODIFIER_KEYS = {
     kCGEventFlagMaskCommand: 55,
     kCGEventFlagMaskShift: 56,
@@ -50,8 +51,8 @@ MODIFIER_KEYS = {
 KEY_V = 9
 KEY_RETURN = 36
 
-# Fiziksel tus kodlari (ABD duzeni). Kisayol tanimlarinda harf/rakam adi
-# kullanilir, burada koda cevrilir.
+# Physical key codes (US layout). Shortcut definitions name a letter or digit
+# and it is translated to a code here.
 KEYCODES = {
     "a": 0, "b": 11, "c": 8, "d": 2, "e": 14, "f": 3, "g": 5, "h": 4,
     "i": 34, "j": 38, "k": 40, "l": 37, "m": 46, "n": 45, "o": 31, "p": 35,
@@ -75,7 +76,7 @@ def ax_trusted() -> bool:
 
 
 def ax_request() -> bool:
-    """Erisilebilirlik izni yoksa sistem dialogunu acar."""
+    """Opens the system dialog when the Accessibility permission is missing."""
     return bool(AXIsProcessTrustedWithOptions({kAXTrustedCheckOptionPrompt: True}))
 
 
@@ -93,7 +94,7 @@ def _tap(code: int, command: bool = False) -> None:
 
 
 class Pasteboard:
-    """Pano icerigini (resim dahil) yedekleyip geri yukler."""
+    """Backs up the clipboard (images included) and restores it."""
 
     def __init__(self):
         self.pb = NSPasteboard.generalPasteboard()
@@ -134,7 +135,7 @@ class Injector:
         self.bundle_id = cfg.get("bundle_id", "com.anthropic.claudefordesktop")
         self.last_error: str | None = None
 
-    # --- uygulamayi bul ---
+    # --- find the application ---
     def find_app(self, bundle_id: str | None = None) -> NSRunningApplication | None:
         bundle_id = bundle_id or self.bundle_id
         apps = NSWorkspace.sharedWorkspace().runningApplications()
@@ -143,7 +144,7 @@ class Injector:
                 return a
         if bundle_id != self.bundle_id:
             return None
-        # bundle id degisirse isimden yakala (sadece normal pencereli uygulamalar)
+        # If the bundle id changes, match by name (regular windowed apps only)
         for a in apps:
             name = (a.localizedName() or "").lower()
             if name == "claude" and a.activationPolicy() == 0:
@@ -151,7 +152,8 @@ class Injector:
         return None
 
     def focused_role(self, pid: int) -> str | None:
-        """Claude icinde odakta ne var? Composer disina yazmayi fark etmek icin."""
+        """What is focused inside Claude? Used to notice typing outside the
+        composer."""
         try:
             app = AXUIElementCreateApplication(pid)
             err, el = AXUIElementCopyAttributeValue(app, "AXFocusedUIElement", None)
@@ -164,10 +166,10 @@ class Injector:
 
     def send_hotkey(self, bundle_id: str, key: str,
                     modifiers: list[str]) -> tuple[bool, str]:
-        """Baska bir uygulamaya klavye kisayolu gonderir.
+        """Sends a keyboard shortcut to another application.
 
-        Uygulama kisa sureligine one alinir (kisayol ancak odakli pencereye
-        gider), tus basilir, sonra odak eski uygulamaya iade edilir.
+        The app is brought to the front briefly (a shortcut only reaches the
+        focused window), the key is pressed, and focus is handed back.
         """
         if not ax_trusted():
             return False, "Erişilebilirlik izni yok"
@@ -185,9 +187,9 @@ class Injector:
         if target is None:
             return False, f"{bundle_id} çalışmıyor"
 
-        # Tercih edilen yol: olayi DOGRUDAN hedef surece gonder. Odak hic
-        # degismez, ekran titremez. Bazi uygulamalar bu olaylari yok sayar;
-        # o zaman asagidaki one-alma yontemine dusulur.
+        # Preferred route: post the event DIRECTLY to the target process.
+        # Focus never moves and the screen does not flicker. Some apps ignore
+        # these events, and then the bring-to-front route below is used.
         if self.cfg.get("direct_post", True):
             if self._post_to_pid(int(target.processIdentifier()), code, flags):
                 return True, "doğrudan"
@@ -198,15 +200,14 @@ class Injector:
                    and previous.processIdentifier() == target.processIdentifier())
         try:
             if not already and not self._bring_to_front(target):
-                # ONEMLI: one gelmediyse tusu GONDERME. Aksi halde kisayol
-                # o an onde olan uygulamaya duser — hedef yerine baska bir pencereye
-                # Shift+Cmd+A gidip sekme arama paneli aciliyordu.
+                # IMPORTANT: do NOT send the key if it did not come to the
+                # front. Otherwise the shortcut lands on whatever is in front -
+                # Shift+Cmd+A once opened a tab search panel in another window.
                 return False, "uygulama öne getirilemedi"
-            # SADE yontem: sadece olay bayragi. Daha once degistirici
-            # tuslari AYRI olaylar olarak da gonderiyordum ve kisayol o
-            # degisiklikten sonra calismaz oldu. Ayrica olaylar bir KAYNAK
-            # ile uretiliyor; kaynaksiz (None) olaylar bazi uygulamalarda
-            # degistiricilerle birlikte dogru yorumlanmiyor.
+            # The PLAIN route: the event flag only. Sending the modifiers as
+            # SEPARATE events was tried and broke the shortcut. Events are also
+            # created with a SOURCE; source-less (None) events are not
+            # interpreted correctly with modifiers in some applications.
             src = CGEventSourceCreate(kCGEventSourceStateCombinedSessionState)
             for down in (True, False):
                 ev = CGEventCreateKeyboardEvent(src, code, down)
@@ -221,11 +222,11 @@ class Injector:
         return True, ""
 
     def capture_front(self) -> int | None:
-        """O an onde olan uygulamanin pid'i.
+        """The pid of whatever is in front right now.
 
-        Once NSWorkspace sorulur: PENCERESIZ bir uygulama (ornegin acik
-        penceresi olmayan Finder) one gectiginde pencere listesi yanlis
-        cevap veriyor. NSWorkspace bos donerse pencere listesine dusulur.
+        NSWorkspace is asked first: when a WINDOWLESS app (Finder with no open
+        window, for example) comes to the front, the window list answers
+        wrongly. If NSWorkspace returns nothing, the window list is used.
         """
         try:
             app = NSWorkspace.sharedWorkspace().frontmostApplication()
@@ -236,17 +237,17 @@ class Injector:
         return self.frontmost_pid()
 
     def restore_front(self, pid: int | None, delay: float = 0.7) -> bool:
-        """Odagi daha once onde olan uygulamaya iade eder.
+        """Hands focus back to whatever was in front before.
 
-        Konusma degistirmek Claude'u one getiriyor; mesaj gonderirken
-        odagi iade ettigimiz gibi burada da iade ediyoruz, yoksa baska bir
-        pencerede calisirken ekran Claude'da kaliyor.
+        Switching conversations brings Claude forward; focus is returned here
+        just as it is after sending a message, otherwise the screen stays on
+        Claude while you work in another window.
         """
         if pid is None:
             return False
-        time.sleep(delay)                     # gecis otursun
+        time.sleep(delay)                     # let the switch settle
         if self.frontmost_pid() == pid:
-            return True                       # zaten orada
+            return True                       # already there
         for a in NSWorkspace.sharedWorkspace().runningApplications():
             if int(a.processIdentifier()) == int(pid):
                 a.activateWithOptions_(NSApplicationActivateIgnoringOtherApps)
@@ -254,12 +255,11 @@ class Injector:
         return False
 
     def _applescript_front(self, pid: int, timeout: float = 2.0) -> bool:
-        """System Events uzerinden one getirir.
+        """Brings an app to the front through System Events.
 
-        NSRunningApplication.activate(...) bazi Electron uygulamalarinda
-        (Electron tabanlilarda) hicbir sey yapmiyor; System Events farkli bir yoldan
-        istedigi icin orada calisabiliyor. Ilk kullanimda macOS bir kerelik
-        "Otomasyon" izni sorar.
+        NSRunningApplication.activate(...) does nothing in some Electron-based
+        apps; System Events asks through a different path and can work there.
+        macOS asks for the one-time "Automation" permission on first use.
         """
         script = (f'tell application "System Events" to set frontmost of '
                   f'(first process whose unix id is {pid}) to true')
@@ -283,13 +283,13 @@ class Injector:
 
     @staticmethod
     def frontmost_pid() -> int | None:
-        """One cikan uygulamanin pid'i — CANLI okuma.
+        """The pid of the frontmost app - read LIVE.
 
-        NSRunningApplication.isActive() ve NSWorkspace.frontmostApplication()
-        Cocoa olay dongusu uzerinden guncelleniyor; dongu olmayan bir
-        baglamda hic tazelenmiyor ve "one gelmedi" diye yaniltiyor.
-        Pencere listesi ise her cagrida sistemden taze gelir: liste onden
-        arkaya siralidir, ilk normal katman penceresi en ondeki uygulamanindir.
+        NSRunningApplication.isActive() and NSWorkspace.frontmostApplication()
+        are updated through the Cocoa event loop; without a running loop they
+        never refresh and falsely report "it did not come forward". The window
+        list, in contrast, is fetched fresh on every call: it is ordered front
+        to back, and the first normal-layer window belongs to the front app.
         """
         try:
             wins = CGWindowListCopyWindowInfo(
@@ -303,7 +303,7 @@ class Injector:
         return None
 
     def _bring_to_front(self, target, timeout: float = 2.5) -> bool:
-        """Uygulamayi one getirir ve GERCEKTEN geldigini dogrular."""
+        """Brings the app forward and verifies that it REALLY came forward."""
         pid = int(target.processIdentifier())
         target.activateWithOptions_(NSApplicationActivateIgnoringOtherApps)
         deadline = time.time() + timeout
@@ -312,7 +312,7 @@ class Injector:
                 time.sleep(self.cfg.get("hotkey_settle_ms", 180) / 1000)
                 return True
             time.sleep(0.05)
-        # ikinci deneme: LaunchServices
+        # second attempt: LaunchServices
         try:
             url = target.bundleURL()
             if url is not None:
@@ -333,7 +333,7 @@ class Injector:
 
     @staticmethod
     def _post_to_pid(pid: int, code: int, flags: int) -> bool:
-        """Tus olayini odak degistirmeden dogrudan bir surece gonderir."""
+        """Posts a key event straight to a process without moving focus."""
         try:
             accum = 0
             order = [(m, c) for m, c in MODIFIER_KEYS.items() if flags & m]
@@ -359,7 +359,7 @@ class Injector:
             print(f"[hotkey] doğrudan gönderim başarısız: {exc}")
             return False
 
-    # --- ana islem ---
+    # --- main operation ---
     def send(self, text: str) -> tuple[bool, str]:
         text = (text or "").strip()
         if not text:
@@ -384,9 +384,9 @@ class Injector:
         pb.set_text(text)
 
         try:
-            # One gelmesini DOGRULA. Eskiden sadece 160 ms bekleniyordu;
-            # aktivasyon gecikirse Cmd+V o an onde olan uygulamaya dusuyor
-            # ve mesaj hic gitmiyordu (Claude odakli degilken).
+            # VERIFY it came to the front. This used to be a flat 160 ms
+            # wait; when activation lagged, Cmd+V landed on whatever was in
+            # front and the message never arrived (with Claude unfocused).
             if not already_front and not self._bring_to_front(target):
                 return False, "Claude öne getirilemedi"
 

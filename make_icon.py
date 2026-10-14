@@ -41,7 +41,7 @@ def main() -> None:
         if half >= 16:
             render(svg, iconset / f"icon_{half}x{half}@2x.png", size)
     render(svg, ASSETS / "icon.png", 1024)
-    # menubar: renkli degil, sablon (template) ikon -> karanlik/aydinlik uyumlu
+    # menu bar: a template icon rather than a colour one -> works in light/dark
     render(ASSETS / "robot_mono.svg", ASSETS / "menubar.png", 22)
     render(ASSETS / "robot_mono.svg", ASSETS / "menubar@2x.png", 44)
     subprocess.run(["iconutil", "-c", "icns", str(iconset),

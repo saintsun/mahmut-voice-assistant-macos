@@ -1,4 +1,4 @@
-"""MLX Whisper ile konusma -> metin (Apple Silicon GPU'da calisir)."""
+"""Speech to text with MLX Whisper (runs on the Apple Silicon GPU)."""
 from __future__ import annotations
 
 import re
@@ -9,7 +9,7 @@ import numpy as np
 
 from .phrases import fold
 
-# Whisper sessizlik/gurultu uzerinde bunlari uydurmaya cok meyilli.
+# Whisper is very prone to inventing these over silence or noise.
 _HALLUCINATIONS = {
     "altyazi m k", "altyazi mk", "altyazi", "abone olmayi unutmayin",
     "izlediginiz icin tesekkurler", "tesekkurler", "altyazi ve ceviri",
@@ -22,8 +22,8 @@ _PUNCT_ONLY = re.compile(r"^[\W_]*$", re.UNICODE)
 
 
 def _compression_ratio(text: str) -> float:
-    """Tekrar eden metin cok iyi sikisir. Whisper halusinasyona girdiginde
-    ("...l'e'l'e'l'e...") bu oran firlar. Normal cumle ~1.2-1.9."""
+    """Repeating text compresses extremely well. When Whisper hallucinates
+    ("...l'e'l'e'l'e...") this ratio spikes. A normal sentence is ~1.2-1.9."""
     data = text.encode("utf-8")
     if len(data) < 24:
         return 1.0
@@ -37,20 +37,20 @@ def _is_garbage(text: str) -> bool:
         return True
     if f in _HALLUCINATIONS:
         return True
-    # "Altyazi M.K." gibi varyantlar
+    # Variants such as "Subtitles by M.K."
     if f.startswith("altyazi") or f.startswith("subtitles"):
         return True
-    # Bilinen halusinasyonlarin baslangicla eslesen varyantlari
+    # Known hallucinations matched by their opening words
     for bad in ("izlediginiz icin", "abone olmayi", "beni takip",
                 "altyazi", "subtitles", "thanks for watching",
                 "ceviri ve altyazi", "ceviri m k", "altyazi ve ceviri",
                 "ceviri altyazi"):
         if f.startswith(bad):
             return True
-    # Tek harf / tek nokta artiklari
+    # Leftovers of a single letter or a lone period
     if len(f) <= 1:
         return True
-    # Kendini tekrar eden metin (halusinasyon dongusu)
+    # Self-repeating text (the hallucination loop)
     if _compression_ratio(text) > 2.4:
         return True
     return False
@@ -66,14 +66,14 @@ class Transcriber:
         self.normalize = bool(cfg.get("normalize", True))
         self.target_rms = float(cfg.get("target_rms", 0.08))
         self.max_gain = float(cfg.get("max_gain", 12.0))
-        self._lock = threading.Lock()   # mlx modeli tek anda bir cagri
+        self._lock = threading.Lock()   # the mlx model takes one call at a time
         pf = re.sub(r"[^a-z0-9 ]+", " ", fold(self.initial_prompt or ""))
         self._prompt_folded = re.sub(r"\s+", " ", pf).strip()
         self._ready = False
         self.load_error: str | None = None
 
     def warmup(self) -> bool:
-        """Modeli indirip belege alir; ilk gercek cumle yavas olmasin."""
+        """Downloads and warms the model so the first real sentence is fast."""
         try:
             silence = np.zeros(16000, dtype=np.float32)
             self._run(silence)
@@ -92,9 +92,9 @@ class Transcriber:
         import mlx_whisper
         kwargs = dict(
             path_or_hf_repo=self.model,
-            task="transcribe",          # ASLA "translate": ceviri degil, yaziya dokme
+            task="transcribe",          # NEVER "translate": transcribe, do not translate
             temperature=0.0,
-            condition_on_previous_text=False,   # halusinasyon zincirini kir
+            condition_on_previous_text=False,   # break the hallucination chain
             no_speech_threshold=self.no_speech_threshold,
             compression_ratio_threshold=2.4,
         )
@@ -106,11 +106,11 @@ class Transcriber:
             return mlx_whisper.transcribe(audio, **kwargs)
 
     def _normalize(self, audio: np.ndarray) -> np.ndarray:
-        """Sessiz kaydi hedef seviyeye yukseltir.
+        """Lifts a quiet recording to a target level.
 
-        Dahili mikrofon AirPods'a gore cok daha dusuk seviyede kaydediyor ve
-        Whisper sessiz kayitta belirgin sekilde kotulesiyor ("kes" -> "test").
-        Kazanc sinirli tutulur, yoksa sessizlikteki gurultu de yukselir.
+        The built-in microphone records far quieter than a headset, and Whisper
+        degrades noticeably on quiet audio ("kes" -> "test"). The gain is
+        capped, otherwise background noise is amplified along with the speech.
         """
         if not self.normalize:
             return audio
@@ -132,7 +132,7 @@ class Transcriber:
             print(f"[stt] cozumleme hatasi: {exc}")
             return ""
 
-        # Segment bazinda sessizlik olasiligi yuksek olanlari at.
+        # Drop segments whose no-speech probability is high.
         kept = []
         for seg in result.get("segments", []):
             if seg.get("no_speech_prob", 0.0) > self.no_speech_threshold:
@@ -142,8 +142,8 @@ class Transcriber:
                 kept.append(txt)
         segments = result.get("segments") or []
         if segments:
-            # Segmentlerin tamami elendiyse sonuc BOS'tur. Eskiden burada ham
-            # metne geri donuluyordu ve filtre fiilen devre disi kaliyordu.
+            # When every segment is filtered out the result is EMPTY. This
+            # used to fall back to the raw text, which disabled the filter.
             text = " ".join(kept).strip()
         else:
             text = (result.get("text") or "").strip()
@@ -154,12 +154,12 @@ class Transcriber:
         return re.sub(r"\s+", " ", text)
 
     def _echoes_prompt(self, text: str) -> bool:
-        """Whisper sessizlikte initial_prompt'u geri okuyabiliyor; yakala.
+        """Whisper can read the initial_prompt back on silence; catch that.
 
-        Kisa bir metnin ILK IKI kelimesi prompt'ta ardisik geciyorsa bu bir
-        yankidir ("API response'i" -> prompt'ta "api response payload").
-        Komutlar her zaman cagri adini icerir ve cagri adi prompt'ta
-        gecmedigi icin bu kural komutlari elemez.
+        If the FIRST TWO words of a short text appear consecutively in the
+        prompt, it is an echo ("API response" -> prompt holds "api response
+        payload"). Commands always contain the wake name, which never appears
+        in the prompt, so this rule never discards a command.
         """
         if not self._prompt_folded:
             return False
@@ -171,7 +171,7 @@ class Transcriber:
             return True
         toks = f.split()
         if len(toks) == 1:
-            # Tek kelime ve prompt'ta geciyorsa yanki ("JSON", "API")
+            # A single word that occurs in the prompt is an echo ("JSON", "API")
             return f" {toks[0]} " in f" {self._prompt_folded} "
         if 2 <= len(toks) <= 5:
             if f"{toks[0]} {toks[1]}" in self._prompt_folded:

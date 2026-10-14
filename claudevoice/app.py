@@ -1,12 +1,12 @@
-"""ClaudeVoice - menubar uygulamasi.
+"""Mahmut - the menu bar application.
 
-Giris:  mikrofon -> VAD -> Whisper -> sozluk duzeltme -> tampon
-        tamponun sonunda "tamam mahmut"        -> Claude'a yapistir + Enter
-        tamponun sonunda "<ad> sec mahmut"     -> o konusmaya gec (deep link)
+In:   microphone -> VAD -> Whisper -> glossary repair -> buffer
+      buffer ending in "tamam mahmut"    -> paste into Claude + Enter
+      buffer ending in "<name> sec mahmut" -> switch there (deep link)
 
-Cikis:  TUM canli oturumlarin transcript'leri izlenir; gelen asistan metni
-        markdown'dan temizlenip "<oturum adi> mesaji: ..." diye okunur.
-        Paralel gelen mesajlar tek kuyrukta sirayla seslendirilir.
+Out:  the transcripts of ALL live sessions are watched; incoming assistant
+      text is stripped of markdown and read as "<session> message: ...".
+      Messages arriving in parallel are spoken in order from one queue.
 """
 from __future__ import annotations
 
@@ -44,18 +44,18 @@ from .speak import Speaker, kill_orphans
 from .stt import Transcriber
 from .watcher import TranscriptWatcher
 
-# OFF    : mikrofon tamamen kapali (menubar dugmesi)
-# SLEEP  : "mahmut dur" — mikrofon acik ama SADECE "mahmut başla" dinlenir
-# ARMED  : "hey mahmut" bekleniyor
-# LIVE   : konusulan her sey tamponlaniyor
-# Numarali liste icin Turkce sayi ve sira sozcukleri
+# OFF    : microphone fully off (menu bar switch)
+# SLEEP  : "mahmut dur" - mic open but ONLY "mahmut başla" is listened for
+# ARMED  : waiting for "hey mahmut"
+# LIVE   : everything spoken is buffered
+# Number and ordinal words for the numbered list
 NUM_WORDS = ["", "bir", "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz",
              "dokuz", "on", "on bir", "on iki"]
 ORDINALS = ["", "birinci", "ikinci", "üçüncü", "dördüncü", "beşinci",
             "altıncı", "yedinci", "sekizinci", "dokuzuncu", "onuncu",
             "on birinci", "on ikinci"]
-# Belirtme hali: "birinciyi seç" de deniyor ve "birinciyi" ile "birinci"
-# arasinda IKI harf fark var — bulanik tolerans (1 harf) yakalamiyordu.
+# Accusative forms: people also say "birinciyi seç", and "birinciyi" differs
+# from "birinci" by TWO letters, which the one-letter tolerance missed.
 ORDINALS_ACC = ["", "birinciyi", "ikinciyi", "üçüncüyü", "dördüncüyü",
                 "beşinciyi", "altıncıyı", "yedinciyi", "sekizinciyi",
                 "dokuzuncuyu", "onuncuyu", "on birinciyi", "on ikinciyi"]
@@ -66,10 +66,10 @@ OFF, SLEEP, ARMED, LIVE = "off", "sleep", "armed", "live"
 ICON = {OFF: "⚪️", SLEEP: "😴", ARMED: "🎙", LIVE: "🔴"}
 
 
-# Mesajin yazilacagi uygulama. Codex'in ayri bir masaustu uygulamasi yok:
-# ChatGPT.app'in bundle id'si zaten com.openai.codex (eski uygulama
-# "ChatGPT Classic" = com.openai.chat).
-# enabled=False olan hedef listede gorunur ama SECILEMEZ (henuz denenmedi).
+# The application messages are typed into. Codex has no separate desktop app:
+# ChatGPT.app already carries the bundle id com.openai.codex (the older app,
+# "ChatGPT Classic", is com.openai.chat).
+# A target with enabled=False is listed but cannot be SELECTED (untested).
 TARGETS = {
     "claude": {"label": "Claude Code", "enabled": True,
                "bundle_id": "com.anthropic.claudefordesktop"},
@@ -84,11 +84,11 @@ ICON_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 
 
 def _brand() -> None:
-    """Uygulama adini ve ikonunu calisma aninda ayarlar.
+    """Sets the application name and icon at runtime.
 
-    Bundle'in icine ikon KOPYALANMAZ: imza bozulur ve Erisilebilirlik izni
-    sifirlanir. Python alt surec olarak calistigi icin macOS aksi halde
-    uygulamayi "Python" diye gosteriyor.
+    The icon is NOT copied into the bundle: that breaks the signature and
+    resets the Accessibility permission. Without this, macOS shows the app as
+    "Python" because Python runs as a child process.
     """
     try:
         from Foundation import NSBundle
@@ -109,7 +109,7 @@ def _brand() -> None:
 
 
 def _uniq(items) -> list:
-    """Sirayi koruyarak tekrarlari atar (ayni yazim iki kez gorunmesin)."""
+    """Drops duplicates while preserving order (no spelling listed twice)."""
     seen, out = set(), []
     for x in items or []:
         k = fold(str(x))
@@ -137,16 +137,16 @@ class ClaudeVoice(rumps.App):
         self._last_heard: str | None = None      # son OKUNAN mesajin oturumu
         self.reply_to: str | None = None         # "cevap mahmut" hedefi
         self.explicit_listen = False             # "mahmut başla" dendi mi
-        # Zamanlanmis gorevler (routines) ada gore sessize alinir;
-        # menuden elle susturulanlar .muted.json'da saklanir.
+        # Scheduled tasks (routines) are muted by name; the ones muted by hand
+        # from the menu are stored in .muted.json.
         self.exclude_patterns = [fold(x) for x in
                                  self.cfg.get("watch", "exclude_patterns", [])]
         self.muted: set[str] = self._load_muted()
         self.mute_routines = bool(self.cfg.get("watch", "mute_routines", True))
         self._mute_sig: tuple = ()
         self.last_transcript = ""                # Whisper en son ne duydu
-        # Son duyulanlarin arsivi: yanlis duymalari toplayip kelime
-        # setlerine eklemek icin. Panelde gorunur ve kopyalanabilir.
+        # Archive of what was heard recently: used to collect misrecognitions
+        # and add them to the spelling sets. Shown in the panel, copyable.
         self.history: collections.deque = collections.deque(
             maxlen=int(self.cfg.get("ui", "history_size", 200)))
         self._last_action = ""      # son metnin hangi komutu tetikledigi
@@ -156,29 +156,30 @@ class ClaudeVoice(rumps.App):
         self._rss_mb = 0.0
         self._cores = os.cpu_count() or 1
         self._voices_cache: list[dict] = []
-        # Her baslangicta degisen kimlik: panel bunu gorup kendini yeniler,
-        # boylece yeniden baslattigimda acik sekme guncel kodu alir.
+        # An id that changes on every start: the panel notices it and reloads,
+        # so an open tab picks up the new code after a restart.
         self._boot_id = f"{int(time.time())}-{os.getpid()}"
-        # "Dinle ve ekle": bir komut icin bekleyen yakalama
+        # "Listen and add": a capture waiting for one command
         self._amsg = ""                       # son panel eyleminin sonucu
         self._capture: str | None = None      # komut anahtari
         self._capture_text = ""               # duyulan metin (onay bekler)
-        # Panelde calisirken sistem arkada tepki vermesin: komutlar islenmez,
-        # gelen mesajlar okunmaz. Yakalama acikken kendiliginden devreye girer.
+        # Keep the system from reacting while you work in the panel: commands
+        # are not processed and messages are not read. It engages on its own
+        # while a capture is open.
         self.paused = False
         self.audio_q: "queue.Queue" = queue.Queue(maxsize=24)
         self.mic = Microphone(self.cfg["audio"], self.audio_q)
         self.stt = Transcriber(self.cfg["stt"])
         self.matcher = Matcher(self.cfg["phrases"])
-        # Arayuz metinleri cagri adindan turetilir; config'de adi degistirince
-        # menu ve durum satirlari kendiliginden guncellenir.
+        # UI strings derive from the wake name, so renaming it in the config
+        # updates the menu and the status lines automatically.
         self.call_name = self.cfg.get("phrases", "name", "mahmut").capitalize()
-        # Sesle tetiklenen uygulama kisayollari. DIKKAT: self.matcher'dan
-        # SONRA gelmeli — once gelirse AttributeError olusuyor, except onu
-        # yutuyor ve kisayollar sessizce hic kaydedilmiyordu.
-        # (kisayol, kaliplar, cevap) uclulerinden olusur. Bir kisayolun
-        # birden cok eylem grubu olabilir ("aç" / "kapat" / duz anahtar);
-        # her grup kendi sesli cevabini tasir.
+        # Voice-triggered application shortcuts. CAREFUL: this must come
+        # AFTER self.matcher - earlier it raised AttributeError, the except
+        # swallowed it and shortcuts were silently never registered.
+        # Holds (shortcut, patterns, reply) triples. One shortcut can have
+        # several action groups ("on" / "off" / plain toggle) and each group
+        # carries its own spoken reply.
         self.hotkeys = []
         self._hotkey_phrases: dict = {}
         self._hotkey_ref: list[tuple[int, int]] = []   # (kisayol, eylem grubu)
@@ -246,7 +247,7 @@ class ClaudeVoice(rumps.App):
         self._refresh_menu()
 
     def _refresh_sessions_menu(self) -> None:
-        """Konusma listesi degistiyse alt menuyu yeniden kur."""
+        """Rebuilds the submenu when the conversation list changed."""
         try:
             sessions = self.registry.all()
         except Exception:
@@ -255,7 +256,7 @@ class ClaudeVoice(rumps.App):
         if sig == self._session_sig:
             return
         self._session_sig = sig
-        # rumps alt menuyu ilk ogede olusturur; o ana kadar clear() patlar.
+        # rumps creates the submenu on its first item; clear() fails until then.
         try:
             self.mi_sessions.clear()
         except AttributeError:
@@ -269,7 +270,7 @@ class ClaudeVoice(rumps.App):
                                   callback=functools.partial(self._menu_switch, s))
             self.mi_sessions.add(item)
 
-    # ------------------------------------------------------- susturma
+    # ------------------------------------------------------- muting
     def _load_muted(self) -> set[str]:
         try:
             with open(MUTED_PATH, encoding="utf-8") as fh:
@@ -285,10 +286,10 @@ class ClaudeVoice(rumps.App):
             pass
 
     def is_muted(self, name: str) -> bool:
-        """Bu konusmanin mesajlari sesli okunmasin mi?
+        """Should this conversation's messages stay unread?
 
-        Sirasiyla: menuden elle susturulmus mu -> zamanlanmis gorev mi
-        (transcript'teki scheduled-trigger izinden) -> adi desenlere uyuyor mu.
+        In order: muted by hand from the menu -> a scheduled task (from the
+        scheduled-trigger marker in the transcript) -> name matches a pattern.
         """
         if name in self.muted:
             return True
@@ -306,7 +307,7 @@ class ClaudeVoice(rumps.App):
         return any(pat in f for pat in self.exclude_patterns)
 
     def _toggle_mute(self, name: str, _=None) -> None:
-        # Desen yuzunden susturulmussa, elle acmak icin ada "izin" ver.
+        # If a name was muted by a pattern, allow it explicitly to unmute it.
         if name in self.muted:
             self.muted.discard(name)
         elif self.is_muted(name):
@@ -374,7 +375,7 @@ class ClaudeVoice(rumps.App):
 
     @rumps.timer(0.4)
     def _tick(self, _) -> None:
-        # Takipci olduyse geri getir: olmazsa mesajlar sessizce okunmaz.
+        # Bring the watcher back if it died, otherwise messages go unread.
         self._wd = getattr(self, "_wd", 0) + 1
         if self._wd % 25 == 0:                 # ~10 saniyede bir
             try:
@@ -398,10 +399,10 @@ class ClaudeVoice(rumps.App):
                 print(f"[favori] güncelleme hatası: {exc!r}")
 
     def _expire_buffer(self) -> None:
-        """Uzun suredir eklenmeyen tamponu bosaltir.
+        """Clears a buffer that has not grown for a long time.
 
-        Konusurken komut demeyi unutunca ortam konusmasi tamponda birikip
-        duruyordu; sonradan "tamam mahmut" denince hepsi birden gidiyordu.
+        When you forget the send phrase, ambient talk piles up in the buffer
+        and a later "tamam mahmut" would ship all of it at once.
         """
         timeout = float(self.cfg.get("ui", "buffer_timeout_sec", 180) or 0)
         if timeout <= 0 or not self._buffer_at:
@@ -419,11 +420,11 @@ class ClaudeVoice(rumps.App):
         print(f"[tampon] {timeout:.0f} sn eklenmedi, temizlendi ({n} kelime)")
 
     def _sample_usage(self) -> None:
-        """Kendi CPU ve bellek kullanimimizi olcer.
+        """Measures our own CPU and memory usage.
 
-        CPU: getrusage farkiyla hesaplanir (alt surecler dahil) — ek surec
-        acmaya gerek yok. Bellek: macOS'ta guncel RSS icin `ps` gerekiyor,
-        o yuzden seyrek ornekleniyor.
+        CPU comes from the getrusage delta (children included), so no extra
+        process is needed. Memory needs `ps` for a current RSS on macOS, so it
+        is sampled rarely.
         """
         try:
             me = resource.getrusage(resource.RUSAGE_SELF)
@@ -445,12 +446,13 @@ class ClaudeVoice(rumps.App):
             pass
 
     def _check_mic(self) -> None:
-        """Cihaz kaybini yakalar ve yeniden kurar.
+        """Catches a lost device and rebuilds the stream.
 
-        Iki tetikleyici:
-          * mikrofon acik ama 5 sn'dir TAM sessizlik -> cihaz ortadan kalkmis
-            (kulaklik cikarildi), PortAudio listesi tazelenip yeniden baglanir
-          * her ~45 sn'de bir, bos anda -> yeni takilan cihazi fark etmek icin
+        Two triggers:
+          * the mic is open but has been EXACTLY silent for 5 s -> the device
+            is gone (headset unplugged); PortAudio's list is refreshed and the
+            stream reconnects
+          * roughly every 45 s while idle -> to notice a newly plugged device
         """
         if getattr(self, "_mic_released", False):
             return                       # okuma suresince bilerek kapali
@@ -479,10 +481,10 @@ class ClaudeVoice(rumps.App):
             print(f"[audio] cihaz kontrolü hatası: {exc!r}")
 
     def _write_state(self) -> None:
-        """Calisan uygulamanin gercek durumunu .state.json'a yazar.
+        """Writes the running application's real state to .state.json.
 
-        AX izni surec bazinda verildigi icin, iznin GERCEKTEN taninip
-        taninmadigini sadece calisan uygulama bilir.
+        The AX permission is granted per process, so only the running app
+        knows whether it is REALLY recognised.
         """
         try:
             with self.lock:
@@ -535,7 +537,7 @@ class ClaudeVoice(rumps.App):
 
     # ------------------------------------------------------------ boot
     def _install_signal_handlers(self) -> None:
-        """pkill/kill ile kapatilinca okuyan sureci de oldur."""
+        """Kill the speaking process too when stopped with pkill/kill."""
         def handler(signum, _frame):
             try:
                 self.speaker.shutdown()
@@ -582,7 +584,7 @@ class ClaudeVoice(rumps.App):
             self._set_state(OFF)
             self._set_status("kapalı — menüden aç")
             return
-        # Mikrofonu ac: "mahmut başla" ancak mikrofon acikken duyulabilir.
+        # Open the microphone: "mahmut başla" can only be heard with it open.
         self.mic.set_enabled(True)
         if mode == "listen":
             self.explicit_listen = True
@@ -592,7 +594,7 @@ class ClaudeVoice(rumps.App):
             self._set_state(SLEEP)
             self._set_status(f'hazır — "{self.call_name} başla" de')
 
-    # ------------------------------------------------------------ durum
+    # ------------------------------------------------------------ state
     def _set_status(self, text: str) -> None:
         with self.lock:
             self.status = text
@@ -602,7 +604,7 @@ class ClaudeVoice(rumps.App):
             self.state = state
 
     def _notify(self, title: str, text: str) -> None:
-        # Tum macOS bildirimleri tek ayardan kapatilabilir.
+        # All macOS notifications can be turned off from one setting.
         if not self.cfg.get("ui", "notifications", False):
             return
         try:
@@ -610,7 +612,7 @@ class ClaudeVoice(rumps.App):
         except Exception:
             pass
 
-    # ------------------------------------------------------------ menu eylemleri
+    # ------------------------------------------------------------ menu actions
     def toggle_listen(self, _=None) -> None:
         with self.lock:
             state = self.state
@@ -643,11 +645,11 @@ class ClaudeVoice(rumps.App):
                 self.state = ARMED if self.wake_mode else LIVE
 
     def toggle_tts(self, _=None) -> None:
-        """Okuma anahtari — secim KALICI.
+        """The reading switch - the choice PERSISTS.
 
-        Eskiden yalnizca calisan surecteki bayragi ceviriyordu; uygulama her
-        yeniden baslatildiginda config'teki "enabled: true" geri geliyor ve
-        kapatilmis okuma kendiliginden aciliyordu.
+        This used to flip a flag in the running process only, so every restart
+        brought back "enabled: true" from the config and reading turned itself
+        back on.
         """
         on = not self.speaker.enabled
         self.speaker.set_enabled(on)
@@ -655,7 +657,7 @@ class ClaudeVoice(rumps.App):
         self._set_status("okuma açık" if on else "okuma kapalı")
 
     def hush(self, _=None) -> None:
-        """Menuden: o anki okumayi VE kuyrugu temizle."""
+        """From the menu: stop the current reading AND clear the queue."""
         self.speaker.stop_current(clear_queue=True)
         self._set_status("okuma kesildi (kuyruk temizlendi)")
 
@@ -678,7 +680,7 @@ class ClaudeVoice(rumps.App):
 
     # ------------------------------------------------------- panel API
     def panel_state(self) -> dict:
-        """Panelin gosterdigi her sey."""
+        """Everything the panel displays."""
         with self.lock:
             state, buf, status = self.state, self.buffer, self.status
         sessions = []
@@ -689,7 +691,7 @@ class ClaudeVoice(rumps.App):
                                  "id": sess.session_id})
         except Exception:
             pass
-        # Acik konusmalari FAVORI sirasina gore diz; listede olmayanlar sona.
+        # Order open conversations by the FAVOURITES list; the rest go last.
         order = {f.get("id"): i for i, f in enumerate(self.favorites)
                  if f.get("id")}
         names = {f["name"]: i for i, f in enumerate(self.favorites)}
@@ -758,7 +760,7 @@ class ClaudeVoice(rumps.App):
         }
 
     def panel_action(self, action: str, arg=None) -> None:
-        """Paneldeki dugmeler sesli komutlarin AYNISINI calistirir."""
+        """The panel buttons run exactly the SAME actions as voice commands."""
         self._amsg = ""                      # ilgili yerde gosterilecek sonuc
         if action == "cut":
             self.speaker.stop_current(clear_queue=True)
@@ -881,8 +883,8 @@ class ClaudeVoice(rumps.App):
             if new and 0 <= i < len(self.favorites):
                 old_name = self.favorites[i]["name"]
                 self.favorites[i]["name"] = new
-                # Kimligi sifirla: yeni ad baska bir konusmaya isaret
-                # ediyor olabilir, bir sonraki taramada yeniden baglanir.
+                # Reset the id: the new name may point at a different
+                # conversation, so it is re-bound on the next scan.
                 self.favorites[i]["id"] = None
                 self._save_favorites()
                 self._heal_favorites()
@@ -956,11 +958,11 @@ class ClaudeVoice(rumps.App):
         elif action == "capture_start" and arg:
             self._capture = str(arg)
             self._capture_text = ""
-            # Okumayi beklet (kuyruk korunur) ve o anki okumayi kes:
-            # okuma surerken mikrofon kisik oldugu icin konusma duyulmuyordu.
+            # Hold the queue (it is preserved) and stop the current reading:
+            # with the mic ducked during playback, speech was never heard.
             self.speaker.set_hold(True)
             self.speaker.stop_current()
-            # Mikrofon KAPALI olsa bile ac ve kisilmisse hemen ac.
+            # Open the microphone even if it was OFF, and unmute it at once.
             if self.mic._stream is None:
                 self.mic.start()
             self.mic.set_enabled(True)
@@ -1020,10 +1022,10 @@ class ClaudeVoice(rumps.App):
             self._toggle_mute(str(arg))
 
     def _rebuild_matcher(self) -> None:
-        """Kelime setleri degisince TUM kaliplari yeniden derler.
+        """Recompiles ALL patterns when the spelling sets change.
 
-        Matcher bir kez kuruluyor ve kisayol/liste kaliplari ondan
-        tureviyor; biri degisince hepsi yeniden uretilmeli.
+        The matcher is built once and the shortcut/list patterns derive from
+        it, so changing one means regenerating all of them.
         """
         self.matcher = Matcher(self.cfg["phrases"])
         groups_total = 0
@@ -1042,7 +1044,7 @@ class ClaudeVoice(rumps.App):
         print(f"[kalıp] yeniden derlendi ({groups_total} kısayol)")
 
     def add_word_variant(self, canonical: str, word: str) -> tuple[bool, str]:
-        """Yanlis duyulan bir yazimi komutun kelime setine ekler."""
+        """Adds a misheard spelling to a command's word set."""
         canon = fold(canonical).strip()
         w = fold(word).strip()
         if not canon or len(w) < 2 or " " in w:
@@ -1058,10 +1060,10 @@ class ClaudeVoice(rumps.App):
         return True, f"{w!r} → {canon!r} setine eklendi"
 
     def remove_word_variant(self, canonical: str, word: str) -> tuple[bool, str]:
-        """Bir yazimi kelime setinden cikarir.
+        """Removes a spelling from a word set.
 
-        Ana kelimenin kendisi cikarilamaz: set o kelimeyi temsil ediyor,
-        kaldirilirsa komut hic eslesmez.
+        The base word itself cannot be removed: the set represents that word
+        and without it the command never matches.
         """
         canon = fold(canonical).strip()
         w = fold(word).strip()
@@ -1079,7 +1081,7 @@ class ClaudeVoice(rumps.App):
         self._rebuild_matcher()
         return True, f"{w!r} → {canon!r} setinden kaldırıldı"
 
-    # Panelde gosterilen komut listesi: (config anahtari, okunakli ad)
+    # The command list shown in the panel: (config key, readable name)
     COMMAND_LABELS = (
         ("send", "Gönder"),
         ("cut", "Okumayı kes"),
@@ -1094,7 +1096,7 @@ class ClaudeVoice(rumps.App):
     COMMAND_KEYS = tuple(k for k, _ in COMMAND_LABELS)
 
     def _hk_group(self, cmd: str):
-        """'hk:1' -> (kisayol_sozlugu, eylem_grubu) ya da None."""
+        """'hk:1' -> (shortcut_dict, action_group) or None."""
         if not cmd.startswith("hk:"):
             return None
         try:
@@ -1110,7 +1112,7 @@ class ClaudeVoice(rumps.App):
 
     @staticmethod
     def _fav_index(cmd: str) -> int | None:
-        """'fav:3' -> 3, degilse None."""
+        """'fav:3' -> 3, otherwise None."""
         if cmd.startswith("fav:"):
             try:
                 return int(cmd[4:])
@@ -1119,17 +1121,16 @@ class ClaudeVoice(rumps.App):
         return None
 
     def add_words_aligned(self, command: str, phrase: str) -> tuple[bool, str]:
-        """Duyulan cumleyi komutun kalibiyla HIZALAYIP farkli kelimeleri
-        ilgili yazim setine ekler.
+        """ALIGNS the heard sentence with a command pattern and adds the
+        differing words to the matching spelling set.
 
-        Ornek: "Mahmut, çeşit" + komut=cut
-          kalip  : mahmut | kes
-          duyulan: mahmut | cesit
-          -> "cesit" kelimesi "kes" setine eklenir ve bundan sonra BASKA
-             cumlelerde de tutar.
+        Example: "Mahmut, çeşit" with command=cut
+          pattern: mahmut | kes
+          heard  : mahmut | cesit
+          -> "cesit" joins the "kes" set and matches in OTHER sentences too.
 
-        Kelime sayisi hicbir kalipla tutmuyorsa hizalama yapilamaz; o
-        durumda cumlenin tamamini kalip olarak eklemek gerekir.
+        If the word count fits no pattern there is nothing to align, and the
+        whole sentence has to be added as a pattern instead.
         """
         cmd = (command or "").strip()
         idx = self._fav_index(cmd)
@@ -1148,13 +1149,13 @@ class ClaudeVoice(rumps.App):
         canons = [[w for w, _, _ in tokenize(raw)] for raw in source]
         lens = {len(c) for c in canons}
 
-        # Whisper tek kelimeyi ikiye bolebiliyor ("6.yi" -> "6 yi") ya da iki
-        # kelimeyi birlestirebiliyor ("tamammahmut"). Duyulan dizi hicbir
-        # kalipla ayni uzunlukta degilse komsulari birlestirip/bolup deniyoruz;
-        # yoksa "N kelimelik kalip yok" deyip pes ediyordu.
-        # Aday diziler HER ZAMAN uretilir: ayni uzunlukta kotu bir kalip
-        # (orn. tek kelimelik "over") varken birlestirme denenmezse,
-        # "tamammahmut" gibi bir sozcuk "over"in yazimi diye ekleniyordu.
+        # Whisper can split one word in two ("6.yi" -> "6 yi") or glue two
+        # together ("tamammahmut"). When the heard sequence matches no pattern
+        # in length, neighbours are merged or split and retried; otherwise it
+        # gave up with "no N-word pattern".
+        # Candidates are ALWAYS generated: with a bad same-length pattern
+        # around (a one-word "over", say), skipping the merge meant a word like
+        # "tamammahmut" was added as a spelling of "over".
         variants = [heard]
         if len(heard) - 1 in lens:
             for i in range(len(heard) - 1):
@@ -1168,7 +1169,7 @@ class ClaudeVoice(rumps.App):
                     variants.append(heard[:i] + [w[:k], w[k:]]
                                     + heard[i + 1:])
 
-        # Ayni uzunluktaki kaliplar arasindan EN COK kelimesi tutani sec
+        # Among the same-length patterns, pick the one matching the MOST words
         best, best_words, best_hit = None, None, -1
         for words in variants:
             for canon in canons:
@@ -1196,11 +1197,11 @@ class ClaudeVoice(rumps.App):
                                          if already else "")
 
     def add_command_phrase(self, command: str, phrase: str) -> tuple[bool, str]:
-        """Bir cumlenin TAMAMINI komut kalibi olarak ekler.
+        """Adds an ENTIRE sentence as a command pattern.
 
-        Bazen Whisper cumleyi o kadar bozuyor ki kurtaracak kelime
-        kalmiyor ("listeyi getir mahmut" -> "Yüce 3 yi ten mamut").
-        Boyle durumlarda kelime varyanti yetmez; kalibin kendisi eklenir.
+        Sometimes transcription mangles a sentence so badly that no word is
+        left to work with ("listeyi getir mahmut" -> "Yüce 3 yi ten mamut").
+        A spelling variant cannot help there; the pattern itself is added.
         """
         cmd = (command or "").strip()
         idx = self._fav_index(cmd)
@@ -1238,15 +1239,15 @@ class ClaudeVoice(rumps.App):
         self._rebuild_matcher()
         return True, f"{norm!r} → {cmd!r} komutuna eklendi"
 
-    # ---------------------------------------------------- ayarlar
+    # ---------------------------------------------------- settings
     PHRASE_LISTS = ("send", "cut", "listen", "sleep", "reply", "switch",
                     "cancel", "list", "wake")
 
     def _custom_count(self) -> int:
-        """Kullanicinin dil paketine EKLEDIGI kalip/yazim sayisi.
+        """How many patterns/spellings the user ADDED to the language pack.
 
-        Sifirsa panel bir bilgilendirme gosterir: kullanici henuz kendi
-        yanlis duymalarini eklememistir ve komutlar sik sik kacacaktir.
+        At zero the panel shows a notice: the user has not added their own
+        misrecognitions yet and commands will slip through often.
         """
         code = self.cfg.get("ui", "langpack", "tr")
         pack = langpacks.build(code, self.cfg.get("phrases", "name", "mahmut"))
@@ -1282,9 +1283,9 @@ class ClaudeVoice(rumps.App):
         return len(self._phrases_of(key))
 
     def set_primary(self, key: str, phrase: str) -> tuple[bool, str]:
-        """Bir kalibi listenin BASINA alir (panelde ornek olarak gorunur).
+        """Moves a pattern to the FRONT (it shows as the example in the panel).
 
-        Kalip yoksa once eklenir.
+        If the pattern does not exist yet it is added first.
         """
         norm = " ".join(w for w, _, _ in tokenize(phrase))
         if len(norm.split()) < 2:
@@ -1311,7 +1312,7 @@ class ClaudeVoice(rumps.App):
         return True, f"{norm!r} örnek kalıp oldu"
 
     def command_detail(self, key: str) -> dict:
-        """Bir komutun kaliplarini ve ilgili yazim setlerini dondurur."""
+        """Returns a command's patterns and the related spelling sets."""
         key = (key or "").strip()
         idx = self._fav_index(key)
         hk = self._hk_group(key)
@@ -1330,7 +1331,7 @@ class ClaudeVoice(rumps.App):
             label = dict(self.COMMAND_LABELS).get(key, key)
         else:
             return {"error": f"bilinmeyen komut: {key}"}
-        # Kaliplarda gecen kelimelerin yazim setleri
+        # Spelling sets for the words used in the patterns
         wv = self.cfg.get("phrases", "word_variants", {}) or {}
         used = set()
         for ph in phrases:
@@ -1344,7 +1345,7 @@ class ClaudeVoice(rumps.App):
         }
 
     def remove_phrase(self, key: str, phrase: str) -> tuple[bool, str]:
-        """Bir kalibi komuttan cikarir."""
+        """Removes a pattern from a command."""
         key = (key or "").strip()
         idx = self._fav_index(key)
         hk = self._hk_group(key)
@@ -1370,7 +1371,7 @@ class ClaudeVoice(rumps.App):
         return True, f"{norm!r} kaldırıldı"
 
     def classify(self, text: str) -> dict:
-        """Bu metin hangi komutu tetiklerdi? (CALISTIRMADAN soyler)"""
+        """Which command would this text trigger? (Says so WITHOUT running it.)"""
         m = self.matcher
         if m.is_cut(text):
             return {"cmd": "cut", "label": "✂️ Okumayı kes"}
@@ -1402,7 +1403,7 @@ class ClaudeVoice(rumps.App):
         return {"cmd": None, "label": "— komut değil, tampona eklenir"}
 
     def set_name(self, new: str) -> tuple[bool, str]:
-        """Cagri adini degistirir ve TUM kaliplari yeni ada tasir."""
+        """Changes the wake name and migrates ALL patterns to it."""
         new_f = fold(new).strip()
         if not new_f or " " in new_f or len(new_f) < 3:
             return False, "ad en az 3 harf, tek kelime olmalı"
@@ -1419,12 +1420,12 @@ class ClaudeVoice(rumps.App):
 
         for key in self.PHRASE_LISTS:
             self.cfg.set("phrases", key, swap(self.cfg.get("phrases", key, [])))
-        # kelime setleri: eski adin yazimlari yeni ad icin gecersiz
+        # spelling sets: the old name's variants do not apply to the new one
         wv = dict(self.cfg.get("phrases", "word_variants", {}) or {})
         wv.pop(old_f, None)
         wv[new_f] = [new_f]
         self.cfg.set("phrases", "word_variants", wv)
-        # kisayol kaliplari
+        # shortcut patterns
         hks = self.cfg.raw("hotkeys", []) or []
         for hk in hks:
             for grp in hk.get("actions", []) or []:
@@ -1432,7 +1433,7 @@ class ClaudeVoice(rumps.App):
             if "phrases" in hk:
                 hk["phrases"] = swap(hk["phrases"])
         self.cfg.set_raw("hotkeys", hks)
-        # sira secimi ekstralari
+        # extra ordinal-selection patterns
         extra = dict(self.cfg.get("phrases", "fav_select", {}) or {})
         self.cfg.set("phrases", "fav_select",
                      {k: swap(v) for k, v in extra.items()})
@@ -1444,12 +1445,12 @@ class ClaudeVoice(rumps.App):
                       f"yazım setini yeniden oluşturman gerekebilir")
 
     def load_langpack(self, code: str) -> tuple[bool, str]:
-        """Bir dil paketini yukler: komut kaliplari, yazim setleri, sesli
-        metinler ve sira sozcukleri.
+        """Loads a language pack: command patterns, spelling sets, spoken
+        replies and ordinal words.
 
-        Kullanicinin FAVORILERI, kisayollari ve cagri adi korunur; sadece
-        kalip/metin tarafi varsayilana doner. "Varsayilana don" islevi de
-        budur: ayni paketi yeniden yuklemek yeter.
+        The user's FAVOURITES, shortcuts and wake name are preserved; only the
+        pattern/text side returns to the defaults. That is also what "reset to
+        default" does: it reloads the same pack.
         """
         name = self.cfg.get("phrases", "name", "mahmut")
         pack = langpacks.build(code, name)
@@ -1480,7 +1481,7 @@ class ClaudeVoice(rumps.App):
                 p["numbers_acc"], p["select_verbs"])
 
     def set_input_device(self, value) -> tuple[bool, str]:
-        """Mikrofonu secer. "" / None -> otomatik (kulaklik varsa kulaklik)."""
+        """Picks the microphone. "" / None -> automatic (headset if present)."""
         want = (value or "").strip() if isinstance(value, str) else value
         self.cfg.set("audio", "device", want or None)
         name = self.mic.refresh_device(rescan=True) or self.mic.device_name
@@ -1489,7 +1490,7 @@ class ClaudeVoice(rumps.App):
         return True, f"mikrofon: otomatik ({name})"
 
     def set_output_device(self, value) -> tuple[bool, str]:
-        """Okumanin calacagi cihazi secer. "" / None -> sistem varsayilani."""
+        """Picks the device reading plays on. "" / None -> system default."""
         from .audio import resolve_output
         want = (value or "").strip() if isinstance(value, str) else value
         self.cfg.set("audio", "output_device", want or None)
@@ -1501,11 +1502,11 @@ class ClaudeVoice(rumps.App):
         return True, f"hoparlör: {name}"
 
     def set_target(self, code: str) -> tuple[bool, str]:
-        """Mesajin gonderilecegi uygulamayi secer.
+        """Picks the application messages are sent to.
 
-        Okuma (cevaplarin seslendirilmesi) yalnizca Claude Code'da calisir:
-        transkript JSONL dosyalarini oradan okuyoruz. Codex'te yazma/gonderme
-        calisir, okuma icin kaynak yok.
+        Reading replies aloud only works with Claude Code, since that is where
+        the transcript JSONL files come from. Typing and sending would work
+        with Codex, but there is no source to read from.
         """
         code = (code or "").strip().lower()
         t = TARGETS.get(code)
@@ -1540,7 +1541,7 @@ class ClaudeVoice(rumps.App):
 
     @staticmethod
     def list_voices() -> list[dict]:
-        """`say -v '?'` ciktisini ayristirir."""
+        """Parses the output of `say -v '?'`."""
         try:
             out = subprocess.run(["say", "-v", "?"], capture_output=True,
                                  text=True, timeout=10).stdout
@@ -1548,9 +1549,9 @@ class ClaudeVoice(rumps.App):
             return []
         seen, voices = set(), []
         for line in out.splitlines():
-            # "Yelda (Turkish (Türkiye)) tr_TR    # ..." — ic ice parantez
-            # var ve dil kodundan once TEK bosluk olabiliyor; eski desen
-            # iki+ bosluk bekledigi icin Yelda listeye hic girmiyordu.
+            # "Yelda (Turkish (Türkiye)) tr_TR    # ..." - parentheses nest
+            # and there can be a SINGLE space before the language code; the old
+            # pattern expected two or more, so Yelda never made the list.
             m = re.match(r"^(.+?)\s+([a-z]{2}[-_][A-Za-z]{2,})\s+#", line)
             if not m:
                 continue
@@ -1586,19 +1587,20 @@ class ClaudeVoice(rumps.App):
         self.speaker.shutdown()
         rumps.quit_application()
 
-    # ------------------------------------------------------------ TTS kopru
+    # ------------------------------------------------------------ TTS bridge
     def _is_own_voice(self, text: str) -> bool:
-        """Duyulan metin, o an okunan metnin KENDISI mi (hoparlor yankisi)?
+        """Is the heard text the one being read right now (speaker echo)?
 
-        Yanki, okunan cumlenin bir parcasini AYNI SIRAYLA tasir. Sadece
-        "kelimelerin cogu geciyor" demek yetmiyordu: okunan metinde "mahmut"
-        ve "kes" ayri ayri gecerse kullanicinin gercek "mahmut kes" komutu da
-        yanki sayilip yok ediliyordu. Bu yuzden ARDISIK alt dizi araniyor;
-        boylece hoparlorle de calisir, mikrofonu kapatmaya gerek kalmaz.
+        An echo carries a piece of the spoken sentence IN THE SAME ORDER.
+        "Most words appear somewhere" was not enough: with "mahmut" and "kes"
+        occurring separately in the text being read, the user's genuine
+        "mahmut kes" was discarded as an echo too. A CONTIGUOUS subsequence is
+        required instead, which works through speakers without closing the
+        microphone.
         """
-        # Son ses parcasi, okuma bittikten ~1 sn sonra yaziya cevriliyor;
-        # o anda speaker.busy artik False oluyordu ve yanki tam korumasiz
-        # geciyordu (kendi okudugumuz "tamam mahmut" mesaji gonderdi).
+        # The final audio chunk is transcribed about a second after playback
+        # ends; speaker.busy was already False by then and the echo passed
+        # unguarded (our own "tamam mahmut" once sent a message).
         spoken = self.speaker.recent_text()
         if not spoken:
             return False
@@ -1615,7 +1617,7 @@ class ClaudeVoice(rumps.App):
         return False
 
     def _tts_started(self, meta=None) -> None:
-        # Okunmakta olan mesajin oturumu: "cevap mahmut" bunu hedef alir.
+        # The session of the message being read: "cevap mahmut" targets it.
         if meta:
             self._last_heard = str(meta)
         if self._capture:
@@ -1628,11 +1630,11 @@ class ClaudeVoice(rumps.App):
         self.mic.unmute_after(self.cfg.get("tts", "mic_cooldown_ms", 400) / 1000)
         self._restore_mic()
 
-    # --- Bluetooth profil korumasi -------------------------------------
-    # Mikrofon akisi acik oldugu surece macOS, giris ve cikis ayni kablosuz
-    # cihazsa (AirPods) HFP profilinde kalir ve OYNATMA cizirtili olur.
-    # Shazam'da da ayni sey oluyor: dinleme bitince ses duzeliyor, cunku
-    # mikrofon akisi kapaniyor. Biz de okuma boyunca akisi kapatiyoruz.
+    # --- Bluetooth profile protection ----------------------------------
+    # While a microphone stream is open and input and output are the same
+    # wireless device (AirPods), macOS can stay in the HFP profile and
+    # PLAYBACK crackles. Shazam behaves the same way: the sound recovers when
+    # listening stops, because the stream closes. We close it while reading.
     def _release_mic_mode(self) -> bool:
         mode = self.cfg.get("audio", "release_mic_while_speaking", "auto")
         if isinstance(mode, str) and mode.lower() == "auto":
@@ -1672,25 +1674,25 @@ class ClaudeVoice(rumps.App):
         self._mic_released = False
 
     def _duck_now(self) -> bool:
-        """Okuma sirasinda mikrofon kapatilsin mi?
+        """Should the microphone be muted while reading?
 
-        "auto" (varsayilan): SADECE ses mikrofonun duyabilecegi bir cikistan
-        caliyorsa kapatilir. Kulaklikta mikrofon acik kalir, boylece okuma
-        surerken "mahmut kes" calismaya devam eder.
+        "auto" (default): muted ONLY when the sound plays through an output
+        the microphone can hear. With headphones the mic stays open, so
+        "mahmut kes" keeps working during a reading.
         """
         mode = self.cfg.get("tts", "duck_mic_while_speaking", "auto")
         if isinstance(mode, str) and mode.lower() == "auto":
-            # Mikrofon KAPATILMAZ: hoparlorle calisirken de konusabilmek
-            # gerekiyor. Kendi sesimiz metin duzeyinde ayikliyor
-            # (_is_own_voice). true dersen klasik kisma geri gelir.
+            # The microphone is NOT closed: you must be able to speak while
+            # using speakers too. Our own voice is filtered at the text level
+            # (_is_own_voice). Setting true brings classic ducking back.
             return False
         return bool(mode)
 
     def _announce_prefix(self, session_name: str) -> str:
-        """Icerikten ONCE, AYRI bir cumle olarak okunan anons.
+        """The announcement read as a SEPARATE sentence BEFORE the content.
 
-        Ayri `say` cagrisi oldugu icin araya dogal bir duraklama girer ve
-        "... mesajini okuyorum." cumlesi icerikle birbirine karismaz.
+        Being its own `say` call puts a natural pause in between, so the
+        "reading the message from ..." sentence does not blur into the text.
         """
         mode = self.cfg.get("tts", "announce_session", "always")
         if mode == "never" or not session_name:
@@ -1710,23 +1712,23 @@ class ClaudeVoice(rumps.App):
         )
         self._last_received = session_name
         self._recv_count = getattr(self, "_recv_count", 0) + 1
-        # Takipci gercekten metin getiriyor mu, loga bak: sorun cikinca
-        # "okundu mu / hic gelmedi mi" ayrimini yapacak tek iz buydu.
+        # Check the log to see whether the watcher really delivers text: this
+        # was the only trace telling "read" apart from "never arrived".
         print(f"[oku] {session_name}: {len(markdown)} karakter "
               f"-> {len(spoken)} okunacak")
         if not spoken:
             return
-        # Kuyruk tek tek okudugu icin paralel gelen mesajlar sirasini bekler.
+        # The queue speaks one at a time, so parallel messages wait their turn.
         self.speaker.say(spoken, meta=session_name,
                          prefix=self._announce_prefix(session_name))
 
-    # ------------------------------------------------------------ STT dongusu
+    # ------------------------------------------------------------ STT loop
     def _stt_loop(self) -> None:
         while True:
             audio = self.audio_q.get()
             with self.lock:
-                # Yakalama aciksa mikrofon kapali durumda bile isle:
-                # kullanici panelden "dinle ve ekle" demis oluyor.
+                # With a capture open, process audio even when the mic is
+                # off: the user asked for "listen and add" in the panel.
                 if self.state == OFF and not self._capture:
                     continue
             text = self.stt.transcribe(audio, self.mic.sr)
@@ -1745,13 +1747,13 @@ class ClaudeVoice(rumps.App):
             })
 
     def _handle_text(self, text: str) -> None:
-        # Sistem duraklatilmissa hicbir komut islenmez, tampona da yazilmaz.
+        # While the system is paused nothing is processed or buffered.
         if self.paused and not self._capture:
             self._last_action = "⏸ duraklatıldı"
             return
 
-        # Panelden "dinle ve ekle" aciksa: duyulani KOMUT OLARAK ISLEME,
-        # onay icin beklet.
+        # With "listen and add" open in the panel: do NOT run what was heard
+        # as a command, hold it for confirmation.
         if self._capture:
             self._capture_text = text
             print(f"[yakala] {self._capture} <- {text!r}", flush=True)
@@ -1759,19 +1761,19 @@ class ClaudeVoice(rumps.App):
             self._set_status(f"yakalandı: {text}")
             return
 
-        # 0a) Okuma surerken duyulan sey okunan metnin kendisiyse (hoparlor
-        # yankisi) hicbir komut calistirilmaz: okunan cumlede "mahmut" ve
-        # "kes" gecerse uygulama kendi kendini kesiyordu.
+        # 0a) If what we hear while reading is the text being read (speaker
+        # echo), no command runs: a sentence containing "mahmut" and "kes"
+        # used to make the app cut itself off.
         if self._is_own_voice(text):
             self._last_action = "🔇 kendi sesi"
             return
 
-        # 0) Okumayi kesme / uyku komutlari her durumdan calisir.
+        # 0) Cut and sleep commands work from any state.
         if self.matcher.is_cut(text):
             self._last_action = "✂️ KES"
-            # Kuyrugu DA temizle: bir cevap birden cok metin blogu olarak
-            # gelebiliyor, sadece o anki blogu durdurmak hic kesilmemis gibi
-            # duyuluyordu (hemen sonraki blok basliyordu).
+            # Clear the queue TOO: a reply can arrive as several text blocks,
+            # and stopping only the current one sounded like nothing was cut
+            # (the next block started immediately).
             self.speaker.stop_current(clear_queue=True)
             self._set_status("okuma kesildi")
             return
@@ -1783,8 +1785,9 @@ class ClaudeVoice(rumps.App):
             self._last_action = "⏸ DUR"
             self._go_sleep()
             return
-        # SIRA SECIMI once: "ikinciyi getir mahmut" hem sira secimine hem
-        # liste kuralina (ad + "getir") uyuyor. Daha ozgul olan kazanmali.
+        # ORDINAL SELECTION first: "ikinciyi getir mahmut" fits both the
+        # ordinal rule and the list rule (name + "getir"). The more specific
+        # one must win.
         for idx, pats in getattr(self, "fav_patterns", []):
             if self.matcher.find_tail(text, pats)[0]:
                 self._last_action = f"#{idx} SEÇ"
@@ -1795,17 +1798,17 @@ class ClaudeVoice(rumps.App):
             self._speak_list()
             return
 
-        # Uygulama kisayollari da bir KONTROL komutudur: "mahmut dur"
-        # durumundayken bile calisir (dikte degil, tek seferlik eylem).
+        # Application shortcuts are CONTROL commands too: they work even in
+        # the "mahmut dur" state (a one-off action, not dictation).
         for hk, pats, reply, label in self.hotkeys:
             if self.matcher.find_tail(text, pats)[0]:
                 self._last_action = f"🎛 {label}"
                 self._do_hotkey(hk, reply, label)
                 return
 
-        # Okuma devam ederken mikrofon aciksa, duyulan sey buyuk ihtimalle
-        # Claude'un kendi sesidir. Yukaridaki komutlar disinda hicbir sey
-        # islenmez; boylece okunan metin yanlislikla mesaj olarak gitmez.
+        # With the microphone open during a reading, what we hear is most
+        # likely Claude's own voice. Nothing beyond the commands above is
+        # processed, so the text being read never goes out as a message.
         if self.speaker.busy:
             self._last_action = "— okuma sürüyor"
             return
@@ -1813,10 +1816,10 @@ class ClaudeVoice(rumps.App):
         with self.lock:
             state = self.state
         if state == SLEEP:
-            # Durdurulmusken de konusma tamponda BIRIKIR ama hicbir sey
-            # yapilmaz. Tek istisna gonderme: "tamam mahmut" denirse hem
-            # uyanir hem birikeni gonderir — kullanici zaten mesaj yollamak
-            # istedigini soylemis oluyor.
+            # While stopped, speech still ACCUMULATES in the buffer but
+            # nothing acts on it. The one exception is sending: "tamam mahmut"
+            # both wakes up and sends what was collected - the user has just
+            # said they want the message to go out.
             with self.lock:
                 cand = f"{self.buffer} {text}".strip()
             done, payload = self.matcher.find_send(cand)
@@ -1857,7 +1860,7 @@ class ClaudeVoice(rumps.App):
         with self.lock:
             candidate = f"{self.buffer} {text}".strip()
 
-        # 1) Uygulama kisayollari:  "mahmut mikrofon aç"
+        # 1) Application shortcuts:  "mahmut mikrofon ac"
         for hk, pats, reply, label in self.hotkeys:
             hit, before = self.matcher.find_tail(candidate, pats)
             if hit:
@@ -1876,7 +1879,7 @@ class ClaudeVoice(rumps.App):
             self._arm_reply()
             return
 
-        # 3) Konusma degistirme:  "<ad> seç mahmut"
+        # 3) Switching conversations:  "<name> seç mahmut"
         is_switch, name = self.matcher.find_switch(candidate)
         if is_switch:
             self._last_action = "⇄ GEÇİŞ"
@@ -1911,11 +1914,11 @@ class ClaudeVoice(rumps.App):
 
     # ------------------------------------------------------------ eylemler
     def _wake_up(self) -> None:
-        """"mahmut başla" — durdurulmussa da kapaliyken de aktif dinlemeye gecer."""
+        """"mahmut başla" - goes to active listening from stopped or off."""
         with self.lock:
             already = self.state == LIVE and self.explicit_listen
         if already:
-            # Zaten dinliyoruz: tamponu BOZMA, sadece teyit et.
+            # Already listening: do NOT disturb the buffer, just confirm.
             self._set_status("zaten dinliyorum")
             if self.speaker.enabled:
                 self.speaker.say(self.cfg.get(
@@ -1934,7 +1937,7 @@ class ClaudeVoice(rumps.App):
             self.speaker.say(self.cfg.get("tts", "listen_reply", "Dinliyorum."))
 
     def _go_sleep(self) -> None:
-        """"mahmut dur" — mikrofon acik kalir ama sadece uyandirma dinlenir."""
+        """"mahmut dur" - the mic stays open but only the wake phrase counts."""
         with self.lock:
             already = self.state == SLEEP
         if already:
@@ -1951,13 +1954,13 @@ class ClaudeVoice(rumps.App):
         if self.speaker.enabled:
             self.speaker.say(self.cfg.get("tts", "sleep_reply", "Tamam, tatildeyim."))
 
-    # ------------------------------------------------- numarali liste
+    # ------------------------------------------------- numbered list
     def _load_favorites(self) -> list[dict]:
-        """Favorileri {ad, kimlik} bicimine cevirir.
+        """Converts favourites into {name, id} form.
 
-        Sadece ADI saklamak kirilgan: konusma yeniden adlandirilinca favori
-        tutmuyor ve "kapali" gorunuyor. Oturum KIMLIGI degismedigi icin
-        onu da sakliyoruz; ad degisirse kendiliginden guncelleniyor.
+        Storing only the NAME is fragile: renaming a conversation breaks the
+        favourite and it shows as "closed". The session ID does not change, so
+        it is stored as well and the name updates itself.
         """
         out: list[dict] = []
         for item in (self.cfg.get("ui", "favorites", []) or []):
@@ -1972,7 +1975,7 @@ class ClaudeVoice(rumps.App):
         return [f["name"] for f in self.favorites]
 
     def _heal_favorites(self) -> None:
-        """Eksik kimlikleri doldurur, degisen adlari gunceller."""
+        """Fills in missing ids and refreshes names that changed."""
         try:
             sessions = self.registry.all()
         except Exception:
@@ -1987,7 +1990,7 @@ class ClaudeVoice(rumps.App):
                     f["name"] = live.name
                     changed = True
                 continue
-            # kimlik yok: once acik oturumlardan, sonra baslik indeksinden
+            # no id: try the open sessions first, then the title index
             hit = find_exact(f["name"], sessions)
             if hit is not None:
                 f["id"] = hit.session_id
@@ -2001,10 +2004,10 @@ class ClaudeVoice(rumps.App):
             self._save_favorites()
 
     def _compile_favorites(self) -> None:
-        """Her sira numarasi icin sesli secim kaliplarini uretir.
+        """Generates the spoken selection patterns for each position.
 
         "birinci sec mahmut", "bir sec mahmut", "1 sec mahmut",
-        "birinci mahmut", "birinci numara mahmut" — hepsi ayni seyi yapar.
+        "birinci mahmut", "birinci numara mahmut" - all do the same thing.
         """
         self.fav_patterns = []
         self._fav_raw: dict[int, list[str]] = {}
@@ -2016,7 +2019,7 @@ class ClaudeVoice(rumps.App):
             wa = NUM_A[i] if i < len(NUM_A) else w
             raw = []
             # "sec" disinda "getir" ve "ac" da kullaniliyor:
-            # "ikinciyi getir mahmut" liste komutuna benziyordu.
+            # "ikinciyi getir mahmut" looked like the list command.
             verbs = VERBS
             for form in (o, oa):              # "birinci" ve "birinciyi"
                 for v in verbs:
@@ -2027,7 +2030,7 @@ class ClaudeVoice(rumps.App):
                 for v in verbs:
                     raw += [f"{form} {v} {n}", f"{n} {form} {v}"]
             raw += [f"{i} sec {n}", f"{n} {i} sec"]
-            # Panelden eklenen ekstra kaliplar
+            # Extra patterns added from the panel
             extra = (self.cfg.get("phrases", "fav_select", {}) or {})
             raw += list(extra.get(str(i), []) or [])
             self._fav_raw[i] = raw
@@ -2042,7 +2045,7 @@ class ClaudeVoice(rumps.App):
               f"{len(self.fav_patterns)} sıra kalıbı")
 
     def _speak_list(self) -> None:
-        """Listeyi numaralandirarak sesli okur."""
+        """Reads the list aloud with numbers."""
         g = lambda k, d: self.cfg.get("tts", k, d) or d
         if not self.favorites:
             self._set_status("liste boş")
@@ -2063,13 +2066,13 @@ class ClaudeVoice(rumps.App):
                          + ("" if name in acik else closed))
         self._set_status(f"liste okunuyor ({len(self.favorites)} konuşma)")
         if self.speaker.enabled:
-            # say_parts: aralara GERCEK sessizlik koyar. Noktalama ile
-            # dogru duraklama elde edilemiyor (olculdu).
+            # say_parts inserts REAL silence between items. Punctuation does
+            # not produce a correct pause (measured).
             self.speaker.say_parts(parts, pause=float(
                 self.cfg.get("tts", "list_pause_sec", 0.35)))
 
     def _select_favorite(self, index: int) -> None:
-        """Listedeki n'inci konusmaya gecer; kapaliysa ONCE acar."""
+        """Switches to the nth conversation, opening it FIRST if it is closed."""
         if not (1 <= index <= len(self.favorites)):
             self._set_status(f"listede {index}. sıra yok")
             return
@@ -2079,9 +2082,9 @@ class ClaudeVoice(rumps.App):
             sessions = self.registry.all(force=True)
         except Exception:
             sessions = []
-        # 1) KIMLIK: ad degisse bile tutar
+        # 1) ID: holds even when the name changed
         session = next((x for x in sessions if x.session_id == fid), None)
-        # 2) birebir ad (bulanik eslestirme "Portal" icin "Pam"i seciyordu)
+        # 2) exact name (fuzzy matching picked a similar name instead)
         if session is None:
             session = find_exact(name, sessions)
         if session is None:
@@ -2097,8 +2100,8 @@ class ClaudeVoice(rumps.App):
             self._switch_and_announce(session)
             return
         # Kapali: transcript indeksinden kimligi bul, resume deep link'i ile
-        # ac, listede belirmesini bekle. Acilma ~10 sn surdugu icin bu is
-        # AYRI bir is parcaciginda yapilir, yoksa ses isleme bloklanir.
+        # open it and wait for it to appear. Opening takes about 10 s, so this
+        # runs in a SEPARATE thread or audio processing would block.
         sid = fid or self.titles.find(name)
         if not sid:
             self._set_status(f"{name} bulunamadı")
@@ -2116,13 +2119,14 @@ class ClaudeVoice(rumps.App):
             self._say_tpl("resume_failed", "{name} açılamadı.", name)
             return
         timeout = float(self.cfg.get("ui", "resume_timeout_sec", 45))
-        # Kimlikle bekle: yeni acilan oturumun ADI hemen atanmiyor, bir sure
-        # klasor adiyla gorunuyor ve isimle arama bos donuyordu.
+        # Wait by id: a freshly opened session does not get its NAME right
+        # away, shows up under the folder name for a while, and a search by
+        # name came back empty.
         session = wait_for_session_id(sid, timeout=timeout / 2)
         if session is None:
-            # Deep link bazen sessizce dusuyor (uygulama o an mesgulse).
-            # Olculen davranis: ilk denemede hic acilmadi, ikincisinde
-            # 2 saniyede acildi. Bir kez daha dene.
+            # The deep link is sometimes dropped silently (when the app is
+            # busy). Measured: the first attempt opened nothing, the second
+            # opened in two seconds. Try once more.
             print(f"[resume] {name!r} ilk denemede açılmadı, tekrar deneniyor")
             self._set_status(f"{name} açılmadı, tekrar deneniyor…")
             resume_session(sid)
@@ -2153,7 +2157,7 @@ class ClaudeVoice(rumps.App):
         self._set_status(f"geçildi, odak → {after}")
 
     def _say_tpl(self, key: str, fallback: str, name: str) -> None:
-        """Config'deki sablonu doldurup okur."""
+        """Fills in the template from the config and reads it."""
         if not self.speaker.enabled:
             return
         tpl = self.cfg.get("tts", key, fallback) or fallback
@@ -2164,10 +2168,10 @@ class ClaudeVoice(rumps.App):
         self.speaker.say(text)
 
     def _wake_if_asleep(self) -> None:
-        """Konusma secmek konusma NIYETI demek: durduruldu durumundaysa ac.
+        """Selecting a conversation means intent to talk: wake if stopped.
 
-        Aksi halde kullanici konusmayi seciyor, sonra diktesi sessizce
-        yok sayiliyor ve neden gitmedigini anlamiyor.
+        Otherwise the user picks a conversation, their dictation is silently
+        ignored and they cannot tell why nothing was sent.
         """
         with self.lock:
             if self.state != SLEEP:
@@ -2181,7 +2185,7 @@ class ClaudeVoice(rumps.App):
 
     def _switch_and_announce(self, session, resumed: bool = False) -> None:
         # Gecis Claude'u one getiriyor. Mesaj gonderirken odagi nasil iade
-        # ediyorsak burada da ediyoruz: baska bir pencerede calisirken
+        # we return focus here as well: while working in another window
         # ekranin Claude'da kalmasi istenmiyor.
         restore = bool(self.cfg.get("inject", "restore_focus_after_switch", True))
         prev = self.injector.capture_front() if restore else None
@@ -2211,7 +2215,7 @@ class ClaudeVoice(rumps.App):
             self._set_status(f"geçilemedi: {msg}")
 
     def _arm_reply(self) -> None:
-        """"cevap mahmut": en son duyulan mesajin oturumunu hedef al."""
+        """"cevap mahmut": target the session of the message heard last."""
         target = self._last_heard or self._last_received
         if not target:
             self._set_status("henüz cevaplanacak mesaj gelmedi")
@@ -2225,11 +2229,11 @@ class ClaudeVoice(rumps.App):
             self.speaker.say(tpl.format(dative=dative(target), name=target))
 
     def _install_stop_hotkey(self) -> None:
-        """Okumayi kesen GENEL kisayolu dinler.
+        """Listens for the GLOBAL stop-reading shortcut.
 
-        NSEvent genel izleyicisi olayi YUTMAZ; tusa basildiginda one gelen
-        uygulama da olayi gorur. Bu yuzden hicbir yerde karsiligi olmayan bir
-        kombinasyon secildi (varsayilan ⌥⌘.).
+        An NSEvent global monitor does NOT swallow the event; the front
+        application sees the keystroke too. That is why a combination with no
+        meaning anywhere else was chosen.
         """
         spec = str(self.cfg.get("shortcuts", "stop_reading", "cmd+alt+.") or "")
         parts = [p.strip().lower() for p in spec.split("+") if p.strip()]
@@ -2270,7 +2274,7 @@ class ClaudeVoice(rumps.App):
             print(f"[kısayol] kurulamadı: {exc}")
 
     def set_panel_port(self, raw) -> tuple[bool, str]:
-        """Paneli baska bir porta tasir (uygulama kapanmadan)."""
+        """Moves the panel to another port without restarting the app."""
         from .panel import port_status
         st = port_status(raw, self.panel.port)
         if not st.get("ok"):
@@ -2281,8 +2285,8 @@ class ClaudeVoice(rumps.App):
         if not st.get("free"):
             return False, st["msg"]
         self.cfg.set("ui", "panel_port", port)
-        # Yeni porta tasima isteği YANITLADIKTAN sonra yapilmali; yoksa
-        # cevabi gonderen baglanti kapanir ve tarayici hata gosterir.
+        # The move must happen AFTER this request is answered, otherwise the
+        # connection carrying the reply closes and the browser shows an error.
         threading.Timer(0.6, self._move_panel, args=(port,)).start()
         return True, f"panel {port} portuna taşınıyor"
 
@@ -2295,7 +2299,7 @@ class ClaudeVoice(rumps.App):
             self._set_status(f"panel {port} portuna taşınamadı")
 
     def set_stop_hotkey(self, spec: str) -> tuple[bool, str]:
-        """Okumayi kesen kisayolu degistirir ve aninda yeniden kurar."""
+        """Changes the stop-reading shortcut and re-registers it at once."""
         spec = (spec or "").strip().lower().replace(" ", "")
         parts = [p for p in spec.split("+") if p]
         if len(parts) < 2:
@@ -2367,7 +2371,7 @@ class ClaudeVoice(rumps.App):
             self._notify("Geçilemedi", msg)
 
     def _deliver(self, text: str) -> None:
-        # "cevap mahmut" ile bir oturum hedeflendiyse once oraya gec.
+        # If "cevap mahmut" targeted a session, switch there first.
         if self.reply_to:
             session, _, _ = self.registry.find(self.reply_to)
             if session is not None:
@@ -2392,7 +2396,7 @@ class ClaudeVoice(rumps.App):
 
 
 def _run_inject_test() -> None:
-    """Uygulamanin kendi izin kimligiyle yazma testi. Enter'a BASMAZ."""
+    """Typing test under the app's own permission identity. Does NOT press Enter."""
     cfg = Config()
     out = {"ax_trusted": bool(ax_trusted()), "ts": time.strftime("%H:%M:%S")}
     try:
@@ -2414,8 +2418,9 @@ def _run_inject_test() -> None:
 
 
 def _setup_logging() -> None:
-    """Uygulama `open` ile baslatildiginda stdout hicbir yere gitmiyor ve
-    hatalar goze carpmiyor. Ciktiyi .app.log dosyasina yonlendir."""
+    """When the app is launched with `open`, stdout goes nowhere and
+    errors pass unnoticed. Redirect the output into .app.log.
+    """
     if sys.stdout is not None and sys.stdout.isatty():
         return
     path = os.path.join(os.path.dirname(CONFIG_PATH), ".app.log")
@@ -2441,7 +2446,7 @@ _MOD_SYM = {"cmd": "⌘", "command": "⌘", "shift": "⇧",
 
 
 def hotkey_label(spec: str) -> str:
-    """'cmd+alt+.' -> '⌥⌘.' (okunakli hal)."""
+    """'cmd+alt+.' -> '⌥⌘.' (the readable form)."""
     parts = [p.strip().lower() for p in str(spec).split("+") if p.strip()]
     if not parts:
         return ""
@@ -2452,7 +2457,7 @@ def hotkey_label(spec: str) -> str:
 
 
 def _dock_hide() -> None:
-    """Tek seferlik CLI modlari Dock'ta kare acmasin."""
+    """Keeps one-shot CLI modes from registering a Dock tile."""
     try:
         from AppKit import NSApplication, NSApplicationActivationPolicyProhibited
         NSApplication.sharedApplication().setActivationPolicy_(
@@ -2462,11 +2467,11 @@ def _dock_hide() -> None:
 
 
 def _single_instance() -> bool:
-    """Zaten calisan bir kopya varsa False doner.
+    """Returns False when another instance is already running.
 
-    Bundle artik Dock'ta gorunuyor; her fazladan kopya ayri bir kare aciyor
-    ve ayni mikrofonu/portu paylasmaya calisiyor. Kilit dosyasi pid tutar,
-    surec olmusse kilit devralinir.
+    The bundle now appears in the Dock, so every extra instance adds its own
+    tile and competes for the same microphone and port. The lock file holds a
+    pid; if that process is gone the lock is taken over.
     """
     lock = os.path.join(os.path.dirname(CONFIG_PATH), ".app.lock")
     try:
@@ -2509,8 +2514,8 @@ def main() -> None:
         out = {"ax_trusted": bool(ax_trusted()), "before": front(), "steps": []}
         inj = Injector(cfg["inject"])
         hk = (cfg.raw("hotkeys", []) or [{}])[0]
-        # Hedef uygulama GERCEKTEN one gelebiliyor mu? Gelemiyorsa kisayol
-        # web icerigine ulasmaz ve sessizce etkisiz kalir.
+        # Can the target REALLY come to the front? If not, the shortcut never
+        # reaches the web content and silently does nothing.
         from AppKit import NSApplicationActivateIgnoringOtherApps as _IGN
         tgt = inj.find_app(hk.get("bundle_id", ""))
         out["target_running"] = tgt is not None

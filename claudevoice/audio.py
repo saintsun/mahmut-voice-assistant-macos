@@ -1,7 +1,8 @@
-"""Mikrofon yakalama + enerji tabanli konusma algilama (VAD).
+"""Microphone capture plus energy-based voice activity detection.
 
-Surekli dinler, konusma parcalarini kesip kuyruga birakir. Gurultu tabani
-uyarlanir, boylece sessiz oda ile fanli oda ayni esikle calismaz.
+Listens continuously, cuts out speech segments and drops them on a queue. The
+noise floor adapts, so a quiet room and a room with a fan do not share one
+threshold.
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ import sounddevice as sd
 
 
 class Segmenter:
-    """Cerceve cerceve ses alir, tamamlanmis konusma parcalari uretir."""
+    """Takes audio frame by frame and emits finished speech segments."""
 
     def __init__(self, cfg: dict, out_queue: "queue.Queue[np.ndarray]"):
         self.sr = int(cfg["sample_rate"])
@@ -32,12 +33,12 @@ class Segmenter:
         self._buf: list[np.ndarray] = []
         self._floor = 0.01
         self.min_voiced = int(cfg.get("min_voiced_frames", 8))
-        self._voiced = 0     # segment boyunca esik ustu TOPLAM cerceve
-        self._hot = 0        # ust uste esik ustu cerceve
-        self._cold = 0       # ust uste esik alti cerceve
+        self._voiced = 0     # TOTAL frames above threshold in this segment
+        self._hot = 0        # consecutive frames above threshold
+        self._cold = 0       # consecutive frames below threshold
         self._active = False
         self.last_rms = 0.0
-        self.speaking = False   # disaridan okunur (UI icin)
+        self.speaking = False   # read from outside (for the UI)
 
     def reset(self) -> None:
         self._buf.clear()
@@ -51,7 +52,7 @@ class Segmenter:
         rms = float(np.sqrt(np.mean(np.square(frame))) + 1e-9)
         self.last_rms = rms
 
-        # Gurultu tabani: sessizlikte hizli, konusmada cok yavas guncellenir.
+        # Noise floor: updated fast during silence, very slowly during speech.
         if rms < self._floor:
             self._floor = 0.90 * self._floor + 0.10 * rms
         else:
@@ -67,7 +68,7 @@ class Segmenter:
             if self._hot >= self.start_frames:
                 self._active = True
                 self.speaking = True
-                self._buf = list(self._pre)      # kelime basi kirpilmasin
+                self._buf = list(self._pre)      # keep the start of the word
                 self._pre.clear()
                 self._cold = 0
                 self._voiced = self._hot
@@ -81,9 +82,8 @@ class Segmenter:
             self._flush()
 
     def _flush(self) -> None:
-        # Kisa gurultu patlamalari (tiklama, nefes, kapi) Whisper'i
-        # halusinasyona sokuyor. Segmentte yeterince KONUSMA cercevesi
-        # yoksa hic gonderme.
+        # Short noise bursts (a click, a breath, a door) push Whisper into
+        # hallucinating. If a segment holds too few SPEECH frames, drop it.
         if self._voiced < self.min_voiced:
             self.reset()
             return
@@ -96,10 +96,10 @@ class Segmenter:
         self.reset()
 
 
-# Dahili mikrofonu tanimak icin (dil ayarina gore degisebiliyor)
+# Used to recognise the built-in microphone (its name follows the UI language)
 _BUILTIN_HINTS = ("macbook", "built-in", "builtin", "dahili", "internal")
 
-# Kulaklik/kulaklik seti mikrofonlari
+# Headset and headphone microphones
 _HEADSET_HINTS = (
     "airpods", "beats", "headset", "headphone", "kulaklik", "kulaklık",
     "buds", "bose", "jabra", "sony", "sennheiser", "soundcore", "jbl",
@@ -126,7 +126,7 @@ def _outputs():
 
 
 def list_devices() -> dict:
-    """Panelde gosterilecek giris/cikis cihazlari."""
+    """Input and output devices to show in the panel."""
     def rows(items):
         seen, out = set(), []
         for i, d in items:
@@ -139,11 +139,12 @@ def list_devices() -> dict:
 
 
 def pick_device(want, items) -> tuple[int | None, str] | None:
-    """Kullanicinin SECTIGI cihazi bul (indeks ya da isim parcasi).
+    """Finds the device the user PICKED (by index or name fragment).
 
-    Bulunamazsa None doner; cagiran otomatik secime duser. Boylece
-    "kulaklik mikrofonu" secilip kulaklik cikarildiginda sistem dilsiz
-    kalmaz, makinenin mikrofonuna geri dusulur.
+    Returns None when it is missing, and the caller falls back to automatic
+    selection. That way, picking "the headset microphone" and then unplugging
+    the headset does not leave the system deaf: it drops back to the built-in
+    microphone.
     """
     if isinstance(want, bool) or want is None:
         return None
@@ -155,18 +156,18 @@ def pick_device(want, items) -> tuple[int | None, str] | None:
     text = str(want).strip().lower()
     if not text:
         return None
-    for i, d in items:                       # once TAM esitlik
+    for i, d in items:                       # exact name first
         if str(d["name"]).strip().lower() == text:
             return i, str(d["name"])
-    for i, d in items:                       # sonra parca esitligi
+    for i, d in items:                       # then a fragment match
         if text in str(d["name"]).lower():
             return i, str(d["name"])
     return None
 
 
 def resolve_output(cfg: dict, outputs=None) -> tuple[int | None, str]:
-    """(cihaz_indeksi, ad) — audio.output_device secilmemisse sistem
-    varsayilani kullanilir (None)."""
+    """Returns (device_index, name); with no audio.output_device set, the
+    system default is used (None)."""
     items = _outputs() if outputs is None else outputs
     hit = pick_device(cfg.get("output_device"), items)
     if hit:
@@ -178,11 +179,11 @@ def resolve_output(cfg: dict, outputs=None) -> tuple[int | None, str]:
 
 
 def shares_bluetooth_device(input_name: str) -> bool:
-    """Mikrofon ve hoparlor AYNI kablosuz cihaz mi?
+    """Are the microphone and the speaker the SAME wireless device?
 
-    Boyleyse mikrofon akisi acik oldugu surece macOS cihazi HFP profiline
-    dusuruyor ve OYNATMA cizirtili oluyor (Shazam dinlerken de ayni sey
-    olur). Mikrofonu kapatmak profili A2DP'ye geri dondurur.
+    When they are, macOS can drop the device into the HFP profile while a
+    microphone stream is open, which makes PLAYBACK crackle (Shazam shows the
+    same behaviour while listening). Closing the microphone restores A2DP.
     """
     name = (input_name or "").strip().lower()
     if not name or any(h in name for h in _BUILTIN_HINTS):
@@ -195,16 +196,16 @@ def shares_bluetooth_device(input_name: str) -> bool:
 
 
 def output_is_loud(input_name: str = "") -> bool:
-    """Okuma, mikrofonun DUYABILECEGI bir cikistan mi caliyor?
+    """Is the reading playing through an output the microphone can HEAR?
 
-    Kulaklikta ses mikrofona gitmez; hoparlorde gider ve uygulama kendi
-    okudugunu yaziya cevirir ("Mahmut test" satirlari aslinda kendi sesiydi).
-    Ayni cihaz hem giris hem cikis ise (AirPods) kulaklik sayilir.
+    With headphones the sound never reaches the microphone; through speakers it
+    does, and the app transcribes its own voice. When the same device serves as
+    both input and output (AirPods) it counts as a headset.
     """
     try:
         out = str(sd.query_devices(kind="output")["name"])
     except Exception:
-        return True                      # bilmiyorsak guvenli taraf: hoparlor
+        return True                      # when unsure, assume speakers (the safe side)
     if input_name and out.strip().lower() == input_name.strip().lower():
         return False
     low = out.lower()
@@ -214,17 +215,17 @@ def output_is_loud(input_name: str = "") -> bool:
 
 
 def resolve_device(cfg: dict, inputs=None) -> tuple[int | None, str]:
-    """(cihaz_indeksi, cihaz_adi) dondurur.
+    """Returns (device_index, device_name).
 
     config.json > audio.prefer:
-      "headset" -> once kulaklik mikrofonu (VARSAYILAN). Masadan uzaktayken
-                   dahili mikrofon seni duymaz; kulaklik duyar.
-                   Bedeli: Bluetooth kulaklikta mikrofon acilinca macOS HFP
-                   profiline duser ve OYNATMA kalitesi dusebilir.
-      "builtin" -> once MacBook'un dahili mikrofonu (oynatma kalitesi bozulmaz)
-      "system"  -> sistem varsayilani
+      "headset" -> the headset microphone first (DEFAULT). Away from the desk
+                   the built-in microphone cannot hear you; a headset can.
+                   The cost: opening the microphone on a Bluetooth headset can
+                   drop macOS into the HFP profile and degrade PLAYBACK.
+      "builtin" -> the MacBook's own microphone first (playback stays clean)
+      "system"  -> the system default
 
-    audio.device verilmisse (isim parcasi ya da indeks) o her seyin onunde.
+    An explicit audio.device (name fragment or index) overrides all of this.
     """
     want = cfg.get("device")
     inputs = _inputs() if inputs is None else inputs
@@ -246,7 +247,7 @@ def resolve_device(cfg: dict, inputs=None) -> tuple[int | None, str]:
 
 
 class Microphone:
-    """sounddevice akisini yonetir; mute edildiginde cerceveleri atar."""
+    """Manages the sounddevice stream and drops frames while muted."""
 
     def __init__(self, cfg: dict, out_queue: "queue.Queue[np.ndarray]"):
         self.cfg = cfg
@@ -261,7 +262,7 @@ class Microphone:
         self._lock = threading.Lock()
         self.error: str | None = None
 
-    # --- durum ---
+    # --- state ---
     @property
     def enabled(self) -> bool:
         return self._enabled.is_set()
@@ -274,7 +275,7 @@ class Microphone:
             self.seg.reset()
 
     def mute_for(self, seconds: float) -> None:
-        """TTS calarken kendi sesimizi dinlememek icin."""
+        """Keeps us from listening to our own voice while TTS plays."""
         with self._lock:
             self._muted_until = max(self._muted_until, time.monotonic() + seconds)
         self.seg.reset()
@@ -298,7 +299,7 @@ class Microphone:
         with self._lock:
             return time.monotonic() < self._muted_until
 
-    # --- akis ---
+    # --- stream ---
     def _callback(self, indata, frames, time_info, status):  # noqa: ARG002
         if not self._enabled.is_set() or self._muted():
             return
@@ -324,12 +325,12 @@ class Microphone:
             return False
 
     def refresh_device(self, rescan: bool = False) -> str | None:
-        """Tercih edilen giris cihazi degistiyse akisi yeniden kurar.
+        """Rebuilds the stream when the preferred input device changed.
 
-        DIKKAT: PortAudio cihaz listesini baslangicta onbellege aliyor.
-        Kulaklik takilip cikarildiginda liste kendiliginden guncellenmiyor;
-        uygulama artik var olmayan cihazi dinlemeye devam edip sessizlik
-        okuyor. Bu yuzden rescan=True ile PortAudio yeniden baslatilir.
+        CAREFUL: PortAudio caches the device list at start-up. Plugging or
+        unplugging a headset does not refresh it, so the app keeps listening to
+        a device that no longer exists and reads silence. rescan=True
+        re-initializes PortAudio to work around this.
         """
         import sounddevice as sd
         if rescan:
@@ -364,10 +365,10 @@ class Microphone:
         return None
 
     def silent_for(self) -> float:
-        """Mikrofon acikken kac saniyedir TAM sessizlik geliyor.
+        """How many seconds of EXACT silence have arrived with the mic open.
 
-        Cihaz ortadan kalktiginda PortAudio hata vermiyor, sadece sifir
-        gonderiyor; bunu cihaz kaybi sinyali olarak kullaniyoruz.
+        When a device disappears PortAudio raises no error, it just delivers
+        zeros, so this is used as the signal that the device is gone.
         """
         if not self.enabled or self._stream is None:
             self._zero_since = None

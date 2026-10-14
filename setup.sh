@@ -1,11 +1,11 @@
 #!/bin/bash
-# Tek komutluk kurulum: bagimliliklar + venv + model + .app bundle.
-# Cift tiklamayla calistirmak icin: Kur.command
+# One-command install: dependencies + venv + model + .app bundle.
+# To run it by double-clicking: Kur.command
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
 
-# MAHMUT_UNATTENDED=1: pencere acmaz, soru sormaz (test/otomasyon icin).
+# MAHMUT_UNATTENDED=1: opens no window and asks nothing (test/automation).
 UNATTENDED="${MAHMUT_UNATTENDED:-0}"
 ask() {   # ask "soru" -> cevabi yazar; gozetimsizde varsayilani doner
   local q="$1" def="$2" a=""
@@ -19,7 +19,7 @@ say_step() { printf '\n\033[1;36m==> %s\033[0m\n' "$1"; }
 say_ok()   { printf '    \033[1;32m✓\033[0m %s\n' "$1"; }
 say_err()  { printf '    \033[1;31m✗\033[0m %s\n' "$1"; }
 
-# --- 0) Makine kontrolu -------------------------------------------------
+# --- 0) Machine checks -------------------------------------------------
 say_step "makine kontrol ediliyor"
 [ "$(uname -s)" = "Darwin" ] || { say_err "Bu uygulama yalnizca macOS icindir."; exit 1; }
 [ "$(uname -m)" = "arm64" ] || {
@@ -53,7 +53,7 @@ fi
 command -v brew >/dev/null || { say_err "brew bulunamadi"; exit 1; }
 say_ok "brew $(brew --version | head -1 | cut -d" " -f2)"
 
-# --- 2) Sistem paketleri ------------------------------------------------
+# --- 2) System packages ------------------------------------------------
 say_step "sistem paketleri"
 for pkg in portaudio ffmpeg; do
   if brew list "$pkg" >/dev/null 2>&1; then
@@ -80,7 +80,7 @@ fi
 [ -x "$PY" ] || { say_err "python bulunamadi"; exit 1; }
 say_ok "$("$PY" -V) — $PY"
 
-# Bundle, python'u kendi icinde calistiriyor: embed baglama bayraklari sart.
+# The bundle runs python inside itself: the embed link flags are required.
 PYV="$("$PY" -c 'import sys;print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
 PYCFG="$(dirname "$PY")/python$PYV-config"
 "$PYCFG" --embed --ldflags >/dev/null 2>&1 || {
@@ -96,14 +96,14 @@ xcode-select -p >/dev/null 2>&1 || {
   echo "    Kurulum bitince bu dosyayi tekrar calistir."
   exit 1; }
 
-# --- 4) Sanal ortam -----------------------------------------------------
+# --- 4) Virtual environment -----------------------------------------------------
 say_step "python paketleri"
 [ -d .venv ] || "$PY" -m venv .venv
 ./.venv/bin/pip -q install --upgrade pip
 ./.venv/bin/pip -q install -r requirements.txt
 say_ok "$(./.venv/bin/pip list 2>/dev/null | wc -l | tr -d ' ') paket hazir"
 
-# --- 5) Ayar dosyasi ----------------------------------------------------
+# --- 5) Config file ----------------------------------------------------
 say_step "ayarlar"
 if [ -f config.json ]; then
   PYTHONPATH=. ./.venv/bin/python sync_config.py >/dev/null 2>&1 || true
@@ -128,7 +128,7 @@ print('    model hazir' if t.warmup() else '    HATA: ' + str(t.load_error))
 say_step "uygulama paketleniyor"
 ./build_app.sh
 
-# --- 8) Baslat + izinler ------------------------------------------------
+# --- 8) Launch + permissions ------------------------------------------------
 say_step "baslatiliyor"
 if [ "$UNATTENDED" != "1" ]; then
   pkill -x Mahmut 2>/dev/null || true

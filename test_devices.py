@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Cihaz secimi testleri — ses donanimi GEREKTIRMEZ (sahte liste ile).
+"""Device selection tests - NO audio hardware required (fake device list).
 
-Kurallar:
-  * kullanici bir sey secmediyse: kulaklik varsa kulaklik, yoksa dahili
-  * kullanici DAHILI mikrofonu sectiyse: kulaklik takilsa bile dahili kalir
-  * kullanici KULAKLIGI sectiyse: varken kulaklik, yokken dahiliye duser
-  * gecersiz secim: otomatik secime duser (sistem dilsiz kalmaz)
+The rules:
+  * nothing picked: headset when present, built-in otherwise
+  * BUILT-IN picked: stays built-in even when a headset is connected
+  * HEADSET picked: the headset while present, built-in once it is gone
+  * invalid choice: falls back to automatic (the system is never left deaf)
 """
 import sys
 
@@ -36,7 +36,7 @@ def eq(got, want, label):
     assert got == want, f"{label}: beklenen {want!r}, gelen {got!r}"
 
 
-# --- otomatik (kullanici secmemis) ---
+# --- automatic (nothing picked by the user) ---
 @case("otomatik + kulaklık var  -> kulaklık")
 def _():
     cfg = {"prefer": "headset", "device": None}
@@ -55,7 +55,7 @@ def _():
     eq(resolve_device(cfg, WITH_HEADSET)[1], BUILTIN["name"], "oto/prefer")
 
 
-# --- kullanici ACIKCA sectiyse ---
+# --- when the user picked a device EXPLICITLY ---
 @case("dahili seçili + kulaklık takılı -> yine dahili")
 def _():
     cfg = {"prefer": "headset", "device": "MacBook Air Microphone"}
@@ -93,7 +93,7 @@ def _():
     eq(pick_device("Mikrofon", items), (1, "Mikrofon"), "tam-ad")
 
 
-# --- cikis (hoparlor) ---
+# --- output (speaker) ---
 @case("çıkış seçilmemiş -> sistem varsayılanı")
 def _():
     eq(resolve_output({"output_device": None}, OUT_BOTH)[0], None, "cikis/oto")

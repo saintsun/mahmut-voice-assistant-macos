@@ -1,10 +1,10 @@
 #!/bin/bash
-# Mahmut'u ve okuyan ses sureclerini temiz sekilde durdurur.
-# (Dogrudan `pkill python` yaparsan `say`/`afplay` yetim kalip okumaya
-#  devam edebilir; bu script onlari da kapatir.)
+# Stops Mahmut and any speaking processes cleanly.
+# (A plain `pkill python` leaves `say`/`afplay` orphaned and still
+#  reading; this script stops those too.)
 cd "$(dirname "$0")"
 
-# 1) Kayitli calma sureclerini oldur
+# 1) Kill the recorded playback processes
 if [ -f .tts.pids ]; then
   while read -r pid; do
     [ -n "$pid" ] || continue
@@ -16,7 +16,7 @@ if [ -f .tts.pids ]; then
   rm -f .tts.pids
 fi
 
-# 2) Uygulamayi kapat (SIGTERM -> kendi temizligini yapar)
+# 2) Stop the app (SIGTERM -> it cleans up after itself)
 if pgrep -x Mahmut >/dev/null 2>&1; then
   pkill -x Mahmut && echo "  Mahmut durduruldu"
 else

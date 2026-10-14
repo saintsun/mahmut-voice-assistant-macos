@@ -1,13 +1,13 @@
-"""Claude Code oturumlarini bulur, isme gore eslestirir ve aralarinda gecis yapar.
+"""Finds Claude Code sessions, matches them by name and switches between them.
 
-Iki kaynak:
-  ~/.claude/sessions/<pid>.json   -> canli oturumlar: name, hostSessionId, cwd
-  ~/.claude/projects/*/<id>.jsonl -> o oturumun konusma dosyasi (sesli okuma icin)
+Two sources:
+  ~/.claude/sessions/<pid>.json   -> live sessions: name, hostSessionId, cwd
+  ~/.claude/projects/*/<id>.jsonl -> that session's transcript (for reading aloud)
 
-Gecis, Claude.app'in kendi deep link'i ile yapilir:
+Switching uses Claude.app's own deep link:
   claude://code/continue?session=local_xxxxxxxx
-Bu yol uygulamanin kendi tepsi menusunun kullandigi yoldur; Erisilebilirlik
-izni gerektirmez.
+This is the same path the app's own menu uses and needs no Accessibility
+permission.
 """
 from __future__ import annotations
 
@@ -27,20 +27,20 @@ PROJECTS_DIR = os.path.expanduser("~/.claude/projects")
 HOST_ID_RE = re.compile(r"^local_[A-Za-z0-9-]{1,64}$")
 
 
-# Zamanlanmis gorev (routine) oturumlari transcript'lerinde bu izi tasir:
+# Scheduled-task (routine) sessions carry this marker in their transcript:
 #   "origin": {"kind":"task-notification","subkind":"scheduled-trigger", ...}
-# ve tetikleyen mesaj <scheduled-task name="..."> ile baslar.
-# Oturum ust verisinde (kind/nameSource/cwd) routine'ler normal konusmalardan
-# ayirt EDILEMIYOR, bu yuzden tespit transcript'ten yapiliyor.
+# and the triggering message starts with <scheduled-task name="...">.
+# Session metadata (kind/nameSource/cwd) does NOT distinguish routines from
+# normal conversations, so detection reads the transcript instead.
 _ROUTINE_MARKERS = (b'"scheduled-trigger"', b"<scheduled-task ")
 _routine_cache: dict[str, tuple[float, bool]] = {}
 
 
 def is_routine_transcript(jsonl: str, probe_bytes: int = 262144) -> bool:
-    """Bu transcript zamanlanmis bir gorev tarafindan mi baslatilmis?
+    """Was this transcript started by a scheduled task?
 
-    Tetikleyici mesaj dosyanin basinda oldugu icin sadece bas kisim okunur;
-    JSON ayristirilmaz, ham bayt taramasi yapilir (hizli).
+    The triggering message sits at the top of the file, so only the head is
+    read; no JSON parsing, just a raw byte scan (fast).
     """
     try:
         mtime = os.path.getmtime(jsonl)
@@ -69,7 +69,7 @@ class Session:
     pid: int
     updated: float
     jsonl: str | None = field(default=None)
-    routine: bool = field(default=False)   # zamanlanmis gorev mi
+    routine: bool = field(default=False)   # is this a scheduled task
 
     @property
     def switchable(self) -> bool:
@@ -90,7 +90,7 @@ def _find_jsonl(session_id: str) -> str | None:
 
 
 def live_sessions() -> list[Session]:
-    """Su an calisan (kenar cubugunda gorunen) oturumlar."""
+    """Sessions that are running right now (the ones in the sidebar)."""
     out: list[Session] = []
     for path in glob.glob(os.path.join(SESSIONS_DIR, "*.json")):
         try:
@@ -121,7 +121,7 @@ def live_sessions() -> list[Session]:
     return out
 
 
-# --------------------------------------------------------------- isim eslesme
+# ----------------------------------------------------------- name matching
 def _dist(a: str, b: str) -> int:
     if a == b:
         return 0
@@ -135,7 +135,7 @@ def _dist(a: str, b: str) -> int:
 
 
 def _token_sim(a: str, b: str) -> float:
-    """0-1 arasi benzerlik. 'kontrol' ~ 'control' -> 0.71"""
+    """Similarity between 0 and 1. 'kontrol' ~ 'control' -> 0.71"""
     if a == b:
         return 1.0
     m = max(len(a), len(b))
@@ -143,11 +143,11 @@ def _token_sim(a: str, b: str) -> float:
 
 
 def score(spoken: str, name: str) -> float:
-    """Soylenen ismin oturum adina ne kadar uydugu (0-1).
+    """How well the spoken name fits a session name (0-1).
 
-    Her soylenen kelime icin oturum adindaki en iyi karsilik bulunur;
-    skor bunlarin ortalamasidir. Boylece "kunaz gelistirme" ile
-    "Kunaz Geliştirme" tam, "Kunaz Reklam" yarim puan alir.
+    For every spoken word the best counterpart in the session name is found and
+    the score is their average, so "admin paneli" scores full against
+    "Admin Panel" and only half against "Admin Rapor".
     """
     sp = [t for t in fold(spoken).split() if t]
     nm = [t for t in fold(name).split() if t]
@@ -157,18 +157,19 @@ def score(spoken: str, name: str) -> float:
     for s in sp:
         total += max(_token_sim(s, n) for n in nm)
     base = total / len(sp)
-    # Soylenen, adin tamamini kapsiyorsa kucuk bonus (kismi adi cezalandirir)
+    # Small bonus when the spoken text covers the whole name (penalises
+    # partial names)
     coverage = min(len(sp), len(nm)) / max(len(sp), len(nm))
     return base * (0.75 + 0.25 * coverage)
 
 
 def find_exact(name: str, candidates: list[Session]) -> Session | None:
-    """Adi BIREBIR tutan oturumu dondurur (buyuk/kucuk ve Turkce karakter
-    farki onemsiz).
+    """Returns the session whose name matches EXACTLY (case and accents are
+    ignored).
 
-    Favori listesindeki adlar tam yazildigi icin once bu denenir: bulanik
-    eslestirme "Portal Geliştirme" ile "Pam Geliştirme"yi karistirabiliyor
-    (ortak "Geliştirme" kelimesi skoru 0.67'ye cikariyor).
+    Names in the favourites list are written out in full, so this is tried
+    first: fuzzy matching can confuse two names that share a word (a common
+    second word alone pushes the score to 0.67).
     """
     f = " ".join(fold(name).split())
     for c in candidates:
@@ -179,7 +180,7 @@ def find_exact(name: str, candidates: list[Session]) -> Session | None:
 
 def match(spoken: str, candidates: list[Session],
           threshold: float = 0.62) -> tuple[Session | None, float, list[tuple[Session, float]]]:
-    """En iyi eslesen oturumu dondurur: (oturum, skor, tum_skorlar)."""
+    """Returns the best matching session: (session, score, all_scores)."""
     scored = sorted(((c, score(spoken, c.name)) for c in candidates),
                     key=lambda t: -t[1])
     if not scored or scored[0][1] < threshold:
@@ -191,19 +192,19 @@ _ID_OK = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 
 def _safe_id(value: str) -> str:
-    """Deep link'e sadece beklenen bicimdeki kimligi koy.
+    """Only let an id of the expected shape into a deep link.
 
-    host_id / session_id, Claude'un ~/.claude altindaki dosyalarindan
-    geliyor. Oraya bozuk bir deger yazilirsa `open` beklenmedik bir URL
-    semasini acabilirdi; o yuzden bicim dogrulaniyor.
+    host_id / session_id come from Claude's own files under ~/.claude. A
+    malformed value written there could make `open` launch an unexpected URL
+    scheme, so the format is validated.
     """
     v = str(value or "").strip()
     return v if _ID_OK.match(v) else ""
 
 
-# ------------------------------------------------------------------- gecis
+# ---------------------------------------------------------------- switching
 def switch_to(session: Session) -> tuple[bool, str]:
-    """Claude.app'i o oturuma gecirir (deep link; AX izni gerekmez)."""
+    """Switches Claude.app to that session (deep link, no AX permission)."""
     if not session.switchable:
         return False, f"{session.name}: geçiş kimliği yok"
     sid = _safe_id(session.host_id)
@@ -220,7 +221,8 @@ def switch_to(session: Session) -> tuple[bool, str]:
 
 
 class Registry:
-    """Oturum listesini kisa araliklarla tazeler (her cagrida disk okumasin)."""
+    """Refreshes the session list at short intervals so every call does not
+    hit the disk."""
 
     def __init__(self, ttl: float = 3.0):
         self.ttl = ttl
@@ -238,12 +240,12 @@ class Registry:
         return match(spoken, self.all(force=True))
 
 
-# --------------------------------------------------------- kapali oturumlar
+# ------------------------------------------------------------ closed sessions
 def _title_of(path: str) -> str | None:
-    """Transcript dosyasindaki SON custom-title degerini dondurur.
+    """Returns the LAST custom-title value in a transcript file.
 
-    Dosyanin tamamini okumamak icin once son 1 MB taranir; baslik satirlari
-    oturum boyunca tekrar ettigi icin bu genelde yeterli.
+    To avoid reading the whole file only the final 1 MB is scanned; title lines
+    repeat throughout a session, so that is usually enough.
     """
     try:
         size = os.path.getsize(path)
@@ -266,20 +268,20 @@ def _title_of(path: str) -> str | None:
 
 
 class TitleIndex:
-    """Konusma BASLIGI -> oturum kimligi eslemesi (kapali oturumlar dahil).
+    """Maps a conversation TITLE to a session id, closed sessions included.
 
-    Calisan oturumlar ~/.claude/sessions altinda duruyor ama KAPALI olanlar
-    sadece transcript dosyalari olarak var. Kapali bir konusmayi acmak icin
-    oturum kimligi gerekiyor; bu indeks onu saglar.
+    Running sessions live under ~/.claude/sessions, but CLOSED ones exist only
+    as transcript files. Reopening a closed conversation needs its session id,
+    which this index provides.
 
-    Tarama pahali oldugu icin arka planda ve sadece DEGISEN dosyalar icin
-    yapilir.
+    Scanning is expensive, so it runs in the background and only over files
+    that CHANGED.
     """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._mtimes: dict[str, float] = {}
-        self._titles: dict[str, tuple[str, float]] = {}   # baslik -> (sid, mtime)
+        self._titles: dict[str, tuple[str, float]] = {}   # title -> (sid, mtime)
         self.ready = False
 
     def refresh(self) -> int:
@@ -316,7 +318,7 @@ class TitleIndex:
                          name="claudevoice-index").start()
 
     def find(self, spoken: str, threshold: float = 0.72) -> str | None:
-        """Isme en iyi uyan KAPALI oturumun kimligini dondurur."""
+        """Returns the id of the CLOSED session that best fits the name."""
         with self._lock:
             items = list(self._titles.items())
         best, best_s = None, 0.0
@@ -328,7 +330,7 @@ class TitleIndex:
 
 
 def resume_session(session_id: str) -> tuple[bool, str]:
-    """Kapali bir oturumu Claude'un resume deep link'i ile acar."""
+    """Opens a closed session through Claude's resume deep link."""
     if not re.fullmatch(r"[0-9a-fA-F-]{36}", session_id or ""):
         return False, "geçersiz oturum kimliği"
     try:
@@ -342,11 +344,11 @@ def resume_session(session_id: str) -> tuple[bool, str]:
 
 
 def wait_for_session_id(session_id: str, timeout: float = 45.0):
-    """Belirli KIMLIKLI oturum listede belirene kadar bekler.
+    """Waits until the session with this ID appears in the list.
 
-    Isimle beklemek guvenilir degil: yeni acilan bir oturumun adi hemen
-    atanmiyor, bir sure klasor adiyla gorunuyor. Kimlik ise acilistan
-    itibaren dogru.
+    Waiting by name is unreliable: a freshly opened session does not get its
+    name immediately and shows up under the folder name for a while. The id is
+    correct from the start.
     """
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -359,10 +361,10 @@ def wait_for_session_id(session_id: str, timeout: float = 45.0):
 
 def wait_for_session(name: str, timeout: float = 30.0,
                      threshold: float = 0.85):
-    """Oturum listede belirene kadar bekler (acilma birkac saniye suruyor).
+    """Waits until the session appears (opening takes a few seconds).
 
-    Once BIREBIR ad aranir; benzer adli baska bir oturuma atlamasin diye
-    bulanik esik de yuksek tutulur.
+    An EXACT name is tried first, and the fuzzy threshold is kept high so it
+    never jumps to a different session with a similar name.
     """
     deadline = time.time() + timeout
     while time.time() < deadline:

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Uygulamayi yeniden baslatir, izinleri kontrol eder ve yazma yolunu dener.
-# Enter'a BASMAZ: test metni Claude'un yazma alaninda belirir, sen silersin.
+# Restarts the app, checks the permissions and exercises the typing path.
+# Does NOT press Enter: the test text appears in Claude's composer, delete it.
 cd "$(dirname "$0")"
 APP="$PWD/Mahmut.app"
 PY=/opt/homebrew/bin/python3.13
