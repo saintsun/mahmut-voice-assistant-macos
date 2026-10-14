@@ -22,6 +22,21 @@ replies back aloud — code blocks excluded. Everything runs on-device.
 
 ---
 
+## Screenshots
+
+The control panel runs at `127.0.0.1:8765`, localized in English and Turkish.
+(Screenshots use demo data.)
+
+| Control | Commands |
+|---|---|
+| ![Control panel](https://raw.githubusercontent.com/saintsun/mahmut-voice-assistant-macos/main/docs/screenshots/kontrol.png) | ![Command list](https://raw.githubusercontent.com/saintsun/mahmut-voice-assistant-macos/main/docs/screenshots/komutlar.png) |
+| Listening and reading switches, volume, buffer, paginated transcript archive | Command table with pattern counts, favourites, open conversations |
+
+| Command editor | Settings |
+|---|---|
+| ![Command editor](https://raw.githubusercontent.com/saintsun/mahmut-voice-assistant-macos/main/docs/screenshots/modal.png) | ![Settings](https://raw.githubusercontent.com/saintsun/mahmut-voice-assistant-macos/main/docs/screenshots/ayarlar.png) |
+| Patterns, removable spelling chips, add by typing or by speaking (🎙) | Wake name, microphone and speaker, language, voice, shortcut, port |
+
 ## Quickstart
 
 ```bash

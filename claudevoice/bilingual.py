@@ -1,13 +1,13 @@
-"""Metni Turkce / Ingilizce parcalara bolup her birini kendi sesiyle okutur.
+"""Splits text into Turkish / English runs so each is read in its own voice.
 
-macOS `say` gomulu [[voic ...]] komutunu desteklemiyor (parantezleri sesli
-okuyor), bu yuzden her dil parcasi ayri bir `say` cagrisiyla seslendirilir.
+macOS `say` ignores the embedded [[voic ...]] command (it reads the brackets
+aloud), so every language run is spoken by a separate `say` call.
 
 "Backend'deki endpoint'i refactor ettim"
   -> [EN "Backend"] [TR "'deki"] [EN "endpoint"] [TR "'i"] [EN "refactor"]
      [TR "ettim"]
-Yan yana ayni dildeki kelimeler tek parcada birlestirilir, boylece gereksiz
-ses degisimi olmaz.
+Adjacent runs in the same language are merged into one, so the voice does not
+switch more often than it has to.
 """
 from __future__ import annotations
 
@@ -16,13 +16,13 @@ import re
 from .glossary import TERMS
 from .phrases import fold
 
-# Sozlukteki tum terimlerin kelimeleri (cok kelimeli terimler de parcalanir)
+# Every word from the glossary terms (multi-word terms are split too)
 _EN_WORDS: set[str] = set()
 for _t in TERMS:
     for _w in _t.split():
         _EN_WORDS.add(fold(_w))
 
-# Yazilim disinda da sik gecen Ingilizce kelimeler
+# Common English words that show up outside software talk as well
 _EN_WORDS |= {
     "ok", "okay", "fix", "bug", "issue", "update", "upgrade", "install",
     "setup", "run", "start", "stop", "restart", "check", "clean", "clear",
@@ -31,7 +31,7 @@ _EN_WORDS |= {
     "file", "folder", "path", "input", "output", "value", "key", "name",
     "true", "false", "null", "undefined", "void", "static", "public",
     "private", "return", "export", "const", "let", "var", "new", "delete",
-    # oturum adlarinda ve gunluk konusmada gecen Ingilizce kelimeler
+    # English words that appear in session names and everyday speech
     "voice", "control", "dashboard", "admin", "user", "client", "mobile",
     "desktop", "web", "app", "core", "main", "dev", "prod", "staging",
     "legacy", "modern", "light", "dark", "theme", "layout", "header",
@@ -39,20 +39,20 @@ _EN_WORDS |= {
     "search", "filter", "sort", "list", "detail", "summary", "report",
 }
 
-# Turkce'de de aynen kullanilan, Turkce telaffuz edilmesi gereken kelimeler
+# Words borrowed into Turkish that must be pronounced the Turkish way
 _TR_OVERRIDE = {
     "test", "format", "normal", "video", "problem", "sistem", "proje",
     "data", "server", "port", "link", "mail", "stil", "kontrol", "method",
 }
 _EN_WORDS -= _TR_OVERRIDE
 
-# Buyuk harfli kisaltmalar (API, JSON, SQL...) Ingilizce okunur
+# Upper-case acronyms (API, JSON, SQL...) are read in English
 _ACRONYM = re.compile(r"^[A-Z]{2,6}$")
 _TOKEN = re.compile(r"[0-9A-Za-zÇĞİIÖŞÜçğıiöşü]+(?:['’][0-9A-Za-zÇĞİIÖŞÜçğıiöşü]+)*")
 
 
 def _classify(word: str) -> str:
-    """Tek kelime: 'en' mi 'tr' mi?"""
+    """One word: is it 'en' or 'tr'?"""
     f = fold(word)
     if not f or f.isdigit():
         return "tr"
@@ -64,10 +64,10 @@ def _classify(word: str) -> str:
 
 
 def _split_token(word: str, start: int) -> list[tuple[str, int, int]]:
-    """Kesme isaretli kelimeyi govde + Turkce ek olarak ayirir.
+    """Splits an apostrophised word into stem + Turkish suffix.
 
-    "endpoint'i" -> [("en", govde), ("tr", "'i")]
-    Govde Turkce ise bolmeye gerek yok.
+    "endpoint'i" -> [("en", stem), ("tr", "'i")]
+    No split is needed when the stem is Turkish.
     """
     m = re.search(r"['’]", word)
     if not m:
@@ -81,7 +81,8 @@ def _split_token(word: str, start: int) -> list[tuple[str, int, int]]:
 
 
 def split_runs(text: str) -> list[tuple[str, str]]:
-    """[(dil, metin), ...] — metnin tamami, sirayla, bosluk/noktalama dahil."""
+    """[(lang, text), ...] - the whole text in order, spacing and punctuation
+    included."""
     if not text.strip():
         return []
     marks: list[tuple[str, int, int]] = []
@@ -95,7 +96,8 @@ def split_runs(text: str) -> list[tuple[str, str]]:
     cur_lang = marks[0][0]
     for lang, s, e in marks:
         if lang != cur_lang:
-            # Dil degisiyor: buraya kadarki her seyi onceki dile ver.
+            # The language changes here: everything so far belongs to the
+            # previous one.
             chunk = text[cursor:s]
             if chunk.strip():
                 runs.append((cur_lang, chunk))
@@ -105,7 +107,7 @@ def split_runs(text: str) -> list[tuple[str, str]]:
     if tail.strip():
         runs.append((cur_lang, tail))
 
-    # Ayni dildeki komsu parcalari birlestir
+    # Merge neighbouring runs that share a language
     merged: list[tuple[str, str]] = []
     for lang, chunk in runs:
         if merged and merged[-1][0] == lang:

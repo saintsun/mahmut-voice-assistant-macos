@@ -1,7 +1,7 @@
-"""Claude'un markdown cevabini sesli okunabilir duz metne cevirir.
+"""Turns Claude's markdown reply into plain text that can be read aloud.
 
-Kod bloklari, tablolar, dosya yollari, URL'ler ve isaretleme karakterleri
-atilir; geriye sadece konusulacak cumleler kalir.
+Code blocks, tables, file paths, URLs and markup characters are dropped;
+only the sentences worth speaking are left.
 """
 from __future__ import annotations
 
@@ -28,8 +28,8 @@ _EMOJI = re.compile(
     "[\U0001F000-\U0001FAFF\U00002600-\U000027BF\U0001F1E6-\U0001F1FF"
     "\U00002190-\U000021FF\U00002B00-\U00002BFF\uFE0F\u200d]+"
 )
-# Sesli okunurken anlami olmayan isaretler. Tireler virgule cevrilir
-# (dogal duraklama), geri kalani atilir — "--" diye okunmasin.
+# Marks that mean nothing when spoken. Dashes become commas (a natural
+# pause) and the rest is dropped so "--" is never read out loud.
 _LONG_DASH = re.compile(r"\s*(?:-{2,}|[—–―])\s*")
 _LONE_DASH = re.compile(r"(?<=[\s,.;:])-(?=[\s,.;:])|\s-\s")
 _ARROW = re.compile(r"\s*(?:->|=>|<-|<=>)\s*")
@@ -40,7 +40,7 @@ _NL = re.compile(r"\n{2,}")
 
 
 def _inline_repl(m: re.Match) -> str:
-    """Kisa inline kod okunur ('null', 'async'), uzun olan atilir."""
+    """Short inline code is spoken ('null', 'async'); long spans are dropped."""
     inner = m.group(1).strip()
     if len(inner) <= 20 and re.fullmatch(r"[\w\s.'-]+", inner) and "/" not in inner:
         return inner
@@ -86,12 +86,12 @@ def to_speech(markdown: str, code_placeholder: str = "kod bloğu",
     t = _EMOJI.sub(" ", t)
     t = t.replace("|", " ")
 
-    # Ard arda tekrarlayan yer tutuculari tek'e indir
+    # Collapse repeated placeholders into one
     if code_placeholder:
         t = re.sub(rf"(?:\s*{re.escape(code_placeholder)}\.\s*){{2,}}",
                    f" {code_placeholder}. ", t)
 
-    # Okunmayacak isaretleri temizle
+    # Strip the marks that must not be spoken
     t = _ARROW.sub(", ", t)
     t = _LONG_DASH.sub(", ", t)
     t = _LONE_DASH.sub(", ", t)
@@ -102,7 +102,7 @@ def to_speech(markdown: str, code_placeholder: str = "kod bloğu",
     t = "\n".join(ln.strip() for ln in t.split("\n"))
     t = re.sub(r"\n+", ". ", t)
     t = re.sub(r"\.\s*\.(\s*\.)*", ". ", t)
-    t = re.sub(r"\s*([:;,])\s*\.", r"\1 ", t)      # "düzelttim:." -> "düzelttim:"
+    t = re.sub(r"\s*([:;,])\s*\.", r"\1 ", t)      # "fixed it:." -> "fixed it:"
     t = re.sub(r"\s+([.,:;!?])", r"\1", t)
     t = _MULTI_PUNCT.sub(r"\1 ", t)
     t = _WS.sub(" ", t).strip(" .,:;-—–\n\t")

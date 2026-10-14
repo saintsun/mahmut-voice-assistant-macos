@@ -23,6 +23,21 @@ Her şey yerelde çalışır; ses hiçbir yere gönderilmez. İmza/notarization 
 Lisans: [MIT](LICENSE).
 
 
+## Ekran görüntüleri
+
+Kontrol paneli `127.0.0.1:8765` adresinde çalışır, Türkçe ve İngilizce.
+(Görüntülerde demo veri kullanıldı.)
+
+| Kontrol | Komutlar |
+|---|---|
+| ![Kontrol paneli](https://raw.githubusercontent.com/saintsun/mahmut-voice-assistant-macos/main/docs/screenshots/kontrol.png) | ![Komut listesi](https://raw.githubusercontent.com/saintsun/mahmut-voice-assistant-macos/main/docs/screenshots/komutlar.png) |
+| Dinleme ve okuma anahtarları, ses, tampon, sayfalanmış arşiv | Komut tablosu ve kalıp sayıları, liste, açık konuşmalar |
+
+| Komut penceresi | Ayarlar |
+|---|---|
+| ![Komut penceresi](https://raw.githubusercontent.com/saintsun/mahmut-voice-assistant-macos/main/docs/screenshots/modal.png) | ![Ayarlar](https://raw.githubusercontent.com/saintsun/mahmut-voice-assistant-macos/main/docs/screenshots/ayarlar.png) |
+| Kalıplar, silinebilir yazım rozetleri, yazarak ya da söyleyerek ekleme (🎙) | Çağrı adı, mikrofon ve hoparlör, dil, ses, kısayol, port |
+
 ## Güvenlik
 
 **Hiçbir anahtar, token veya kimlik bilgisi yok.** Mahmut Claude'un API'sine

@@ -1,7 +1,7 @@
-"""Bir uygulamanin erisilebilirlik agacini dokar (gelistirme araci).
+"""Dumps an application's accessibility tree (development tool).
 
-Electron/Chromium uygulamalari agaci varsayilan olarak gostermez; once
-AXManualAccessibility ozelligi acilir.
+Electron/Chromium apps do not expose the tree by default; the
+AXManualAccessibility attribute is turned on first.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def dump(bundle_id: str, max_depth: int = 22) -> dict:
     if pid is None:
         return {"error": f"{bundle_id} çalışmıyor"}
     app = AXUIElementCreateApplication(pid)
-    # Electron agaci ancak bu bayrakla aciliyor
+    # Electron only opens its tree once this flag is set
     AXUIElementSetAttributeValue(app, "AXManualAccessibility", True)
 
     found: list[dict] = []
@@ -56,8 +56,9 @@ def dump(bundle_id: str, max_depth: int = 22) -> dict:
     wins = _attr(app, "AXWindows") or []
     for wi, w in enumerate(wins):
         walk(w, 0, f"w{wi}")
-    # Menu cubugu girisi (tray) ve uygulama menusu de taranir: kisayol
-    # calismazsa dogrudan menu ogesine basmak en saglam yol olur.
+    # The menu bar extra (tray) and the app menu are scanned too: when a
+    # shortcut does not work, clicking the menu item directly is the most
+    # reliable path.
     for attr_name in ("AXExtrasMenuBar", "AXMenuBar"):
         bar = _attr(app, attr_name)
         if bar is not None:

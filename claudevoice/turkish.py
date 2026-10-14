@@ -1,4 +1,4 @@
-"""Kucuk Turkce ek yardimcilari — sesli bildirimler dogru duyulsun diye."""
+"""Small Turkish suffix helpers so spoken announcements sound right."""
 from __future__ import annotations
 
 _BACK = set("aıou")
@@ -7,16 +7,16 @@ _VOWELS = _BACK | _FRONT
 
 
 def tr_lower(s: str) -> str:
-    """Turkce'ye uygun kucuk harf (I->ı, İ->i)."""
+    """Turkish-aware lowercase (I->ı, İ->i)."""
     return s.replace("I", "ı").replace("İ", "i").lower()
 
 
 def dative(name: str) -> str:
-    """Yonelme hali: 'Voice Control' -> "Voice Control'a",
-    'Kunaz Geliştirme' -> "Kunaz Geliştirme'ye".
+    """Dative case: 'Voice Control' -> "Voice Control'a",
+    'Admin Panel' -> "Admin Panel'e".
 
-    Son unlunun kalin/ince olusuna gore a/e secilir; kelime unluyle
-    bitiyorsa araya kaynastirma 'y'si girer.
+    The vowel (a/e) follows the last vowel's backness; a buffer 'y' is
+    inserted when the word ends in a vowel.
     """
     base = name.strip()
     if not base:

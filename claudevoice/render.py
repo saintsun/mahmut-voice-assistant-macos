@@ -1,14 +1,14 @@
-"""Cok parcali konusmayi tek seferde, kesintisiz calar.
+"""Plays multi-segment speech as one continuous utterance.
 
-Sorun: her `say` cagrisi ~1 saniye olu zaman getiriyor. Iki dilli bir cumle
-7 parcaya bolunuyorsa 7 saniye bosa gidiyor ve ses kesik kesik duyuluyor.
+The problem: every `say` call costs about a second of dead time. A bilingual
+sentence split into 7 segments wastes 7 seconds and sounds chopped up.
 
-Cozum: parcalar PARALEL olarak dosyaya basilir (`say -o`, gercek zamandan
-cok daha hizli), ffmpeg ile tek dosyada birlestirilir, `afplay` ile bir kez
-calinir. Boylece olu zaman 7x degil 1x olur ve parcalar arasinda bosluk
-kalmaz. Araya istenen sure sessizlik eklenebilir.
+The fix: segments are rendered to files in PARALLEL (`say -o`, far faster than
+real time), concatenated into one file with ffmpeg and played once with
+`afplay`. Dead time is paid once instead of 7 times and no gap is left between
+segments. A silence of any length can be inserted between them.
 
-ffmpeg yoksa cagiran taraf sirali `say` yontemine doner.
+Without ffmpeg the caller falls back to sequential `say` calls.
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def _render_one(args) -> str | None:
 
 
 def render_all(segments: list[tuple[str, int, str]], workdir: str) -> list[str]:
-    """Parcalari paralel olarak sese cevirir; sira korunur."""
+    """Renders segments to audio in parallel, preserving their order."""
     jobs = [(i, v, r, t, workdir) for i, (v, r, t) in enumerate(segments)]
     with ThreadPoolExecutor(max_workers=min(8, len(jobs) or 1)) as pool:
         return [p for p in pool.map(_render_one, jobs) if p]
@@ -48,11 +48,11 @@ def render_all(segments: list[tuple[str, int, str]], workdir: str) -> list[str]:
 
 def concat(paths: list[str], out: str, pause_after: int = -1,
            pause_sec: float = 0.0, pause_between: float = 0.0) -> bool:
-    """Ses dosyalarini tek dosyada birlestirir.
+    """Concatenates audio files into one.
 
-    pause_after: bu indeksteki parcadan SONRA sessizlik eklenir (-1 = ekleme).
-    Parcalarin ornekleme hizlari farkli olabilecegi icin hepsi ayni hiza
-    cevrilir (Yelda ve Samantha ayni hizda uretmiyor).
+    pause_after: insert silence AFTER the segment at this index (-1 = none).
+    Segments may have different sample rates, so everything is resampled to a
+    single rate (Turkish and English voices do not render at the same rate).
     """
     if not paths:
         return False
@@ -87,7 +87,7 @@ def concat(paths: list[str], out: str, pause_after: int = -1,
 def build(segments: list[tuple[str, int, str]], pause_after: int = -1,
           pause_sec: float = 0.0,
           pause_between: float = 0.0) -> tuple[str | None, str | None]:
-    """(calinacak_dosya, gecici_klasor) — isi bitince klasoru sil."""
+    """Returns (file_to_play, temp_dir); delete the directory when done."""
     workdir = tempfile.mkdtemp(prefix="claudevoice-tts-")
     paths = render_all(segments, workdir)
     if not paths:

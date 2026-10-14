@@ -1,12 +1,12 @@
-"""Tum canli Claude Code oturumlarini ayni anda takip eder.
+"""Follows every live Claude Code session at once.
 
-Her oturumun transcript'i ~/.claude/projects/<proje>/<oturum>.jsonl dosyasina
-satir satir yaziliyor. Butun canli oturumlar paralel izlenir; yeni gelen
-asistan METIN bloklari (dusunme ve arac cagrilari haric) oturum adiyla
-birlikte disari verilir.
+Each session's transcript is written line by line to
+~/.claude/projects/<project>/<session>.jsonl. All live sessions are watched in
+parallel; new assistant TEXT blocks (thinking and tool calls excluded) are
+handed out together with the session name.
 
-Paralel gelen mesajlar seslendirme kuyruguna sirayla girer; kuyruk zaten
-tek tek okudugu icin ust uste binmez.
+Messages that arrive in parallel enter the speech queue in order; since the
+queue speaks one item at a time they never overlap.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from .sessions import Registry, Session
 
 
 class _Tail:
-    """Tek bir jsonl dosyasinin okunmamis kismini takip eder."""
+    """Follows the unread tail of a single jsonl file."""
 
     def __init__(self, path: str, start_at_end: bool = True):
         self.path = path
@@ -33,7 +33,7 @@ class _Tail:
             size = os.path.getsize(self.path)
         except OSError:
             return []
-        if size < self.offset:          # dosya kirpilmis
+        if size < self.offset:          # the file was truncated
             self.offset, self.partial = 0, b""
         if size == self.offset:
             return []
@@ -51,7 +51,7 @@ class _Tail:
 
 
 class TranscriptWatcher:
-    """Yeni asistan metinlerini `callback(oturum_adi, metin)` ile bildirir."""
+    """Reports new assistant texts through `callback(session_name, text)`."""
 
     def __init__(self, callback, registry: Registry | None = None,
                  poll_sec: float = 0.4, rescan_sec: float = 3.0):
@@ -61,8 +61,8 @@ class TranscriptWatcher:
         self.rescan_sec = rescan_sec
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
-        self._tails: dict[str, _Tail] = {}      # jsonl yolu -> takipci
-        self._names: dict[str, str] = {}        # jsonl yolu -> oturum adi
+        self._tails: dict[str, _Tail] = {}      # jsonl path -> tail
+        self._names: dict[str, str] = {}        # jsonl path -> session name
         self._seen: set[str] = set()
         self._since_rescan = 0.0
         self.watched: list[str] = []
@@ -80,7 +80,7 @@ class TranscriptWatcher:
         return bool(self._thread and self._thread.is_alive())
 
     def ensure_alive(self) -> bool:
-        """Is parcacigi olmusse yeniden baslatir. True: yeniden baslatildi."""
+        """Restarts the thread if it died. True means it was restarted."""
         if self._stop.is_set() or self.alive():
             return False
         print("[watch] takip durmus, yeniden baslatiliyor")
@@ -89,7 +89,7 @@ class TranscriptWatcher:
         self._thread.start()
         return True
 
-    # --- oturum listesini takiple esitle ---
+    # --- keep the tails in sync with the session list ---
     def _sync(self) -> None:
         sessions: list[Session] = self.registry.all(force=True)
         alive_paths = set()
@@ -99,14 +99,15 @@ class TranscriptWatcher:
             alive_paths.add(s.jsonl)
             self._names[s.jsonl] = s.name
             if s.jsonl not in self._tails:
-                # Yeni gorulen dosyaya SONUNDAN baglan; gecmis okunmasin.
+                # Attach to a newly seen file at its END so history is not
+                # read out loud.
                 self._tails[s.jsonl] = _Tail(s.jsonl, start_at_end=True)
         for gone in set(self._tails) - alive_paths:
             self._tails.pop(gone, None)
             self._names.pop(gone, None)
         self.watched = sorted(self._names.values())
 
-    # --- satir isleme ---
+    # --- line handling ---
     def _handle(self, raw: bytes, session_name: str) -> None:
         try:
             row = json.loads(raw.decode("utf-8", "replace"))
@@ -139,9 +140,9 @@ class TranscriptWatcher:
                     self._sync()
                 except Exception as exc:
                     print(f"[watch] oturum taramasi: {exc}")
-            # Buradaki tek bir istisna is parcacigini OLDURUYORDU: takip
-            # sessizce duruyor, mesajlar hic okunmuyor ve hicbir yerde iz
-            # kalmiyordu. Artik hata loglanip dongu devam ediyor.
+            # A single exception here used to KILL the thread: watching
+            # stopped silently, messages were never read and nothing was
+            # logged anywhere. Now the error is logged and the loop goes on.
             try:
                 for path, tail in list(self._tails.items()):
                     name = self._names.get(path, "Claude")
