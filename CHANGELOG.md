@@ -27,8 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - The transcript watcher understands both formats, Claude Code's
   `assistant/message/content[text]` and Codex's
   `response_item/payload/content[output_text]`.
+- **Uninstaller.** `./uninstall.sh` (or double-clicking `Kaldir.command`)
+  stops the app, removes the bundle, the Python environment and the launch
+  agent, resets the Microphone and Accessibility entries, and asks separately
+  about `config.json`, the 1.5 GB speech model and the folder itself.
+  `--all` and `--keep` skip the questions. Homebrew packages are never
+  removed, because other programs use them.
 
-## [1.0.0] — 2026-10-14
+## [1.0.0] - 2026-10-14
 
 First release. A macOS menu bar app that turns speech into Claude Code
 messages and reads replies back aloud, entirely on-device.
@@ -36,7 +42,7 @@ messages and reads replies back aloud, entirely on-device.
 ### Speech in
 
 - Background listening with energy VAD (adaptive noise floor, pre-roll,
-  minimum-voiced-frames gate) — the model only runs on actual speech
+  minimum-voiced-frames gate), so the model only runs on actual speech
 - On-device transcription with MLX Whisper (`whisper-large-v3-turbo`)
 - Messages are sent **only** on an explicit sign-off phrase, never on silence
 - Hallucination filtering: phantom-phrase blacklist, compression-ratio check,
@@ -67,7 +73,7 @@ messages and reads replies back aloud, entirely on-device.
 ### Control
 
 - Local web panel (`127.0.0.1:8765`): switches, volume, paginated 200-row
-  transcript archive, favourites, command editing, settings — English/Turkish
+  transcript archive, favourites, command editing, settings, English/Turkish
 - Global stop-reading shortcut, default ⌥⌘K
 - Microphone and speaker selection: automatic (headset preferred) or an
   explicit device that survives headset changes
