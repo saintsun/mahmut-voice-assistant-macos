@@ -16,6 +16,8 @@ replies back aloud — code blocks excluded. Everything runs on-device.
 
 ***English** · [Türkçe](README.tr.md)*
 
+*v1.0.0 — [changelog](CHANGELOG.md)*
+
 </div>
 
 ---

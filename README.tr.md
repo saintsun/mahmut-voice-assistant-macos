@@ -2,6 +2,8 @@
 
 *[English](README.md) · **Türkçe***
 
+*v1.0.0 — [changelog](CHANGELOG.md)*
+
 Claude Code ile **sesli** konuşmak için macOS (Apple Silicon) menubar uygulaması.
 
 > Uygulamanın adı **Mahmut: Voice Assistant** — menü çubuğunda ve Dock'ta kısa

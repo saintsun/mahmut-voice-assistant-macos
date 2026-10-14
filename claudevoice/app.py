@@ -26,6 +26,7 @@ import time
 
 import rumps
 
+from . import __version__
 from .audio import Microphone, list_devices as audio_devices
 from .clean import to_speech
 from .config import CONFIG_PATH, MUTED_PATH, STATE_PATH, Config
@@ -711,6 +712,7 @@ class ClaudeVoice(rumps.App):
             "capture": {"key": self._capture, "text": self._capture_text},
             "target": self.cfg.get("inject", "target", "claude"),
             "stop_hotkey": self.stop_hotkey,
+            "version": __version__,
             "devices": audio_devices(),
             "in_device": self.cfg.get("audio", "device", None) or "",
             "out_device": self.cfg.get("audio", "output_device", None) or "",

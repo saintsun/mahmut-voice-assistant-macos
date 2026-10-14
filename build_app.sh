@@ -12,6 +12,9 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP="$ROOT/Mahmut.app"
 PYBIN="$ROOT/.venv/bin/python3"
 BUNDLE_ID="com.erengunes.mahmut"
+# Surum TEK kaynaktan gelir: claudevoice/__init__.py
+VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' "$ROOT/claudevoice/__init__.py")"
+[ -n "$VERSION" ] || VERSION="0.0.0"
 
 [ -x "$PYBIN" ] || { echo "HATA: $PYBIN yok. Once ./setup.sh calistir."; exit 1; }
 
@@ -98,8 +101,8 @@ cat > "$APP/Contents/Info.plist" <<P
   <key>CFBundleExecutable</key><string>Mahmut</string>
   <key>CFBundleIconFile</key><string>Mahmut</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleVersion</key><string>1.0.0</string>
-  <key>CFBundleShortVersionString</key><string>1.0.0</string>
+  <key>CFBundleVersion</key><string>$VERSION</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>Sesli komutlarınızı metne çevirmek için mikrofonu kullanır.</string>

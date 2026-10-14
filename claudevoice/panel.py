@@ -58,6 +58,8 @@ background:var(--card);border:1px solid var(--line);border-radius:999px;
 padding:9px 10px 9px 16px;margin-bottom:12px;backdrop-filter:blur(14px);
 box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .brand{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.brand .ver{font-size:10.5px;color:var(--dim);font-family:"JetBrains Mono",monospace;
+  padding:2px 7px;border:1px solid var(--line);border-radius:999px}
 .brand .nm{font-weight:700;font-size:14px;letter-spacing:.13em;
 text-transform:uppercase;
 background:linear-gradient(92deg,var(--neon),var(--neon2));
@@ -448,7 +450,8 @@ background:rgba(0,255,163,.07);border:1px solid rgba(0,255,163,.35)}
 </style></head><body>
 <nav class="nav">
   <div class="brand"><span class="dot" id="dot"></span>
-    <span class="nm">Mahmut: Voice Assistant</span></div>
+    <span class="nm">Mahmut: Voice Assistant</span>
+    <span class="ver" id="ver"></span></div>
   <div class="tabs">
     <button data-p="kontrol" class="on" onclick="page('kontrol')" data-i18n="tab_control" title="" data-i18n-title="tt_tab_control">Kontrol</button>
     <button data-p="liste" onclick="page('liste')" data-i18n="tab_list" data-i18n-title="tt_tab_list">Liste</button>
@@ -1246,6 +1249,8 @@ async function tick(){
   HIST=d.history||[]; CMDS=d.commands||[];
   renderTargets(d);
   renderDevices(d);
+  const vv=document.getElementById("ver");
+  if(vv && d.version && vv.textContent!=="v"+d.version) vv.textContent="v"+d.version;
   const pp=document.getElementById("stPort");
   if(pp && document.activeElement!==pp && d.panel_port)
     pp.placeholder=String(d.panel_port);
