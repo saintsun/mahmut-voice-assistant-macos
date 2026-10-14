@@ -116,6 +116,23 @@ def _inputs():
     return [(i, d) for i, d in enumerate(devices) if d["max_input_channels"] > 0]
 
 
+def shares_bluetooth_device(input_name: str) -> bool:
+    """Mikrofon ve hoparlor AYNI kablosuz cihaz mi?
+
+    Boyleyse mikrofon akisi acik oldugu surece macOS cihazi HFP profiline
+    dusuruyor ve OYNATMA cizirtili oluyor (Shazam dinlerken de ayni sey
+    olur). Mikrofonu kapatmak profili A2DP'ye geri dondurur.
+    """
+    name = (input_name or "").strip().lower()
+    if not name or any(h in name for h in _BUILTIN_HINTS):
+        return False
+    try:
+        out = str(sd.query_devices(kind="output")["name"]).strip().lower()
+    except Exception:
+        return False
+    return name == out
+
+
 def output_is_loud(input_name: str = "") -> bool:
     """Okuma, mikrofonun DUYABILECEGI bir cikistan mi caliyor?
 
@@ -211,6 +228,13 @@ class Microphone:
 
     def output_is_loud(self) -> bool:
         return output_is_loud(self.device_name)
+
+    def shares_output(self) -> bool:
+        return shares_bluetooth_device(self.device_name)
+
+    @property
+    def open(self) -> bool:
+        return self._stream is not None
 
     def _muted(self) -> bool:
         with self._lock:

@@ -222,6 +222,11 @@ DEFAULTS = {
         # HOPARLORDEN dinliyorsan ve yankidan sikayetciysen true yap
         # (o zaman okumayi sozle kesemezsin, menuden kesersin).
         "duck_mic_while_speaking": "auto",
+        # Okuma sirasinda mikrofon AKISINI kapat (sadece mikrofon ve
+        # hoparlor ayni kablosuz cihazsa). Akis acik kaldigi surece macOS
+        # AirPods'u HFP profilinde tutuyor ve ses cizirtili caliyor.
+        # "auto" (varsayilan) | true (her zaman) | false (hic)
+        "release_mic_while_speaking": "auto",
         "mic_cooldown_ms": 400,
         # Okumadan once hangi konusmadan geldigini soyler.
         #   "always"    -> her mesajda

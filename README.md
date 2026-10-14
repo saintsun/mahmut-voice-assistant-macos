@@ -385,6 +385,15 @@ spoken — as a *contiguous subsequence*, because a simple word-overlap ratio
 also suppressed genuine commands. The guard remains active for 8 seconds after
 playback, since the final audio chunk is transcribed about a second late.
 
+**Bluetooth playback crackled while listening.** Not a bug in the app: as long
+as a microphone stream is open and input and output are the same wireless
+device, macOS drops from A2DP to HFP and playback becomes narrowband. Shazam
+behaves the same way. The fix is to *close* the input stream while speaking
+(not merely mute it) and reopen it afterwards — `release_mic_while_speaking`
+defaults to `auto`, which only does this when input and output are the same
+wireless device. The cost is that a spoken stop command is not heard during
+playback; the global shortcut and the panel button always work.
+
 **Whisper's `initial_prompt` was harmful.** Measured: no benefit on plain
 speech, corruption of mixed-language sentences, and self-echo on silence. It is
 disabled.

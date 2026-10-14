@@ -446,6 +446,8 @@ class ClaudeVoice(rumps.App):
             (kulaklik cikarildi), PortAudio listesi tazelenip yeniden baglanir
           * her ~45 sn'de bir, bos anda -> yeni takilan cihazi fark etmek icin
         """
+        if getattr(self, "_mic_released", False):
+            return                       # okuma suresince bilerek kapali
         try:
             silent = self.mic.silent_for()
             busy = self.speaker.busy or self.mic.seg.speaking
@@ -1578,11 +1580,56 @@ class ClaudeVoice(rumps.App):
             self._last_heard = str(meta)
         if self._capture:
             return                       # yakalama acikken mikrofon kisilmaz
+        self._release_mic()
         if self._duck_now():
             self.mic.mute_for(3600)      # okuma bitene kadar mikrofonu kapat
 
     def _tts_ended(self) -> None:
         self.mic.unmute_after(self.cfg.get("tts", "mic_cooldown_ms", 400) / 1000)
+        self._restore_mic()
+
+    # --- Bluetooth profil korumasi -------------------------------------
+    # Mikrofon akisi acik oldugu surece macOS, giris ve cikis ayni kablosuz
+    # cihazsa (AirPods) HFP profilinde kalir ve OYNATMA cizirtili olur.
+    # Shazam'da da ayni sey oluyor: dinleme bitince ses duzeliyor, cunku
+    # mikrofon akisi kapaniyor. Biz de okuma boyunca akisi kapatiyoruz.
+    def _release_mic_mode(self) -> bool:
+        mode = self.cfg.get("audio", "release_mic_while_speaking", "auto")
+        if isinstance(mode, str) and mode.lower() == "auto":
+            return self.mic.shares_output()
+        return bool(mode)
+
+    def _release_mic(self) -> None:
+        timer = getattr(self, "_mic_reopen", None)
+        if timer is not None:
+            timer.cancel()
+            self._mic_reopen = None
+        if getattr(self, "_mic_released", False) or not self.mic.open:
+            return
+        if not self._release_mic_mode():
+            return
+        self._mic_was_enabled = self.mic.enabled
+        self.mic.stop()
+        self._mic_released = True
+        print("[audio] okuma için mikrofon bırakıldı (A2DP)")
+
+    def _restore_mic(self) -> None:
+        if not getattr(self, "_mic_released", False):
+            return
+        delay = max(0.3, self.cfg.get("tts", "mic_cooldown_ms", 400) / 1000)
+        timer = threading.Timer(delay, self._reopen_mic)
+        timer.daemon = True
+        self._mic_reopen = timer
+        timer.start()
+
+    def _reopen_mic(self) -> None:
+        self._mic_reopen = None
+        if self.speaker.busy:            # arka arkaya mesaj: kapali kalsin
+            return
+        if not self.mic.open and self.mic.start():
+            self.mic.set_enabled(getattr(self, "_mic_was_enabled", True))
+            print("[audio] mikrofon geri açıldı")
+        self._mic_released = False
 
     def _duck_now(self) -> bool:
         """Okuma sirasinda mikrofon kapatilsin mi?

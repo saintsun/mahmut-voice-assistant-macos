@@ -545,6 +545,29 @@ panoya kopyalanır, *Hepsini kopyala* ile tüm liste `saat  metin  → sonuç`
 biçiminde alınır. Yeni bir yanlış duyma görürsen `config.json` →
 `phrases.word_variants` altındaki ilgili kelimenin listesine ekle.
 
+## Bluetooth kulaklıkta cızırtı
+
+AirPods takılıyken okuma cızırtılı geliyordu. Sebep yazılım hatası değil,
+macOS'un profil değiştirmesi: **mikrofon akışı açık olduğu sürece** giriş ve
+çıkış aynı kablosuz cihazsa macOS A2DP'den HFP'ye düşüyor, oynatma dar bantlı
+ve bozuk oluyor. Aynısı Shazam'da da yaşanır — dinlemeyi açınca ses
+dandikleşir, dinleme bitince düzelir.
+
+Çözüm de oradan: okuma boyunca mikrofon **akışı kapatılıyor** (sadece kısılmış
+değil), okuma bitince geri açılıyor. Akış kapanınca macOS A2DP'ye döner.
+
+- `audio.release_mic_while_speaking`: `"auto"` (varsayılan) yalnızca giriş ve
+  çıkış **aynı kablosuz cihazsa** bırakır; dahili mikrofonda hiç dokunmaz.
+  `true` her zaman, `false` hiç.
+- Arka arkaya gelen mesajlarda mikrofon tekrar tekrar açılıp kapanmaz:
+  yeniden açma zamanlayıcısı okuma sürerken iptal edilir.
+- Boştaki cihaz taraması (`_check_mic`) bu sırada mikrofona dokunmaz.
+
+**Bedeli:** okuma sürerken mikrofon kapalı olduğu için *"mahmut kes"* sesli
+komutu o anda duyulmaz. **⌥⌘K** kısayolu ve paneldeki "Okumayı kes" düğmesi
+her zaman çalışır. Sesle kesebilmeyi cızırtıya tercih edersen ayarı `false`
+yap.
+
 ## Kendi sesini duyması (hoparlör yankısı)
 
 Kulaklıksız çalışırken mikrofon, Mahmut'un **kendi okuduğunu** duyuyor. Gerçek
