@@ -144,6 +144,17 @@ if [ "$UNATTENDED" != "1" ]; then
   sleep 1
   open Mahmut.app
   sleep 3
+  # Open the panel right away: the first thing to do is teach it your own
+  # pronunciations, and that happens there.
+  PORT="$(PYTHONPATH=. ./.venv/bin/python -c "
+from claudevoice.config import Config
+print(Config().get('ui', 'panel_port', 8765))" 2>/dev/null || echo 8765)"
+  for _ in $(seq 1 15); do                 # panel acilana kadar bekle
+    curl -fsS -o /dev/null "http://127.0.0.1:$PORT/" 2>/dev/null && break
+    sleep 1
+  done
+  open "http://127.0.0.1:$PORT/" 2>/dev/null || true
+  say_ok "panel acildi: http://127.0.0.1:$PORT/"
 fi
 
 printf '\n\033[1;36m==> izinler\033[0m\n'

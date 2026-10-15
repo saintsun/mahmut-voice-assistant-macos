@@ -33,29 +33,37 @@ HOST_ID_RE = re.compile(r"^local_[A-Za-z0-9-]{1,64}$")
 # Session metadata (kind/nameSource/cwd) does NOT distinguish routines from
 # normal conversations, so detection reads the transcript instead.
 _ROUTINE_MARKERS = (b'"scheduled-trigger"', b"<scheduled-task ")
-_routine_cache: dict[str, tuple[float, bool]] = {}
+_routine_cache: dict[str, tuple[tuple[float, int], bool]] = {}
 
 
 def is_routine_transcript(jsonl: str, probe_bytes: int = 262144) -> bool:
-    """Was this transcript started by a scheduled task?
+    """Is this transcript driven by a scheduled task?
 
-    The triggering message sits at the top of the file, so only the head is
-    read; no JSON parsing, just a raw byte scan (fast).
+    A routine that owns its own session leaves the marker at the top of the
+    file, but a routine attached to an existing conversation leaves it
+    wherever that run happened, which in a long transcript is far past the
+    head. Both ends are therefore scanned: the head catches the first case,
+    the tail catches the most recent run of the second. No JSON parsing, just
+    a raw byte scan over two small windows, so file size does not matter.
     """
     try:
-        mtime = os.path.getmtime(jsonl)
+        st = os.stat(jsonl)
     except OSError:
         return False
+    key = (st.st_mtime, st.st_size)
     hit = _routine_cache.get(jsonl)
-    if hit is not None and hit[0] == mtime:
+    if hit is not None and hit[0] == key:
         return hit[1]
+    found = False
     try:
         with open(jsonl, "rb") as fh:
-            head = fh.read(probe_bytes)
-        found = any(m in head for m in _ROUTINE_MARKERS)
+            found = any(m in fh.read(probe_bytes) for m in _ROUTINE_MARKERS)
+            if not found and st.st_size > probe_bytes:
+                fh.seek(max(0, st.st_size - probe_bytes))
+                found = any(m in fh.read() for m in _ROUTINE_MARKERS)
     except OSError:
         found = False
-    _routine_cache[jsonl] = (mtime, found)
+    _routine_cache[jsonl] = (key, found)
     return found
 
 

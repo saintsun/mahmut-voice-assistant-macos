@@ -1799,6 +1799,13 @@ class ClaudeVoice(rumps.App):
         return tpl.format(name=session_name)
 
     def _on_assistant_text(self, session_name: str, markdown: str) -> None:
+        # The watcher follows EVERY live session, so this is the single gate
+        # where muting applies: scheduled tasks (routines), names matching an
+        # exclude pattern and conversations muted by hand stop here. They also
+        # do not become the "cevap mahmut" target.
+        if self.is_muted(session_name):
+            print(f"[oku] atlandi (okunmayacak): {session_name}")
+            return
         spoken = to_speech(
             markdown,
             code_placeholder=self.cfg.get("tts", "say_code_placeholder", "kod bloğu"),
