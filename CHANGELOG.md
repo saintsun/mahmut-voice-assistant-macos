@@ -33,6 +33,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   about `config.json`, the 1.5 GB speech model and the folder itself.
   `--all` and `--keep` skip the questions. Homebrew packages are never
   removed, because other programs use them.
+- The installer opens the panel at the end, because teaching it your own
+  pronunciations is the first thing to do and that happens there.
+
+### Fixed
+
+- **Muted conversations were read out loud anyway.** The watcher follows every
+  live session and hands each new assistant text straight to the speaker, but
+  nothing checked the mute list on the way, so scheduled tasks (routines) and
+  conversations muted by hand were spoken. The check now sits in the single
+  place every reply passes through, and a muted conversation no longer becomes
+  the "reply" target either.
+- A routine attached to an existing conversation was not recognised. The
+  marker was looked for in the first 256 KB of the transcript only, which in a
+  long conversation is far before the scheduled run. Both ends of the file are
+  scanned now, so recurring check-ins inside an old conversation are caught.
 
 ## [1.0.0] - 2026-10-14
 
