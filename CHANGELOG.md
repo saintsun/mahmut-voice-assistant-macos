@@ -4,6 +4,21 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **Over speakers, the reading was heard back and sent to Claude.** The
+  microphone picks up our own voice together with the user's, so the
+  transcript held the whole list that had just been read plus the one
+  sentence the user actually said. The line was neither an echo (it carried
+  the user's words) nor usable as it was. The echoed runs are now cut out of
+  the heard text and only the rest is handled, so "Test gönderimi" at the end
+  of a read-out list is sent on its own. A single word left between two
+  echoed runs is dropped as well, because the microphone mishears our own
+  voice now and then. With headphones nothing changes, there is no echo
+  there.
+
 ## [1.1.0] - 2026-10-15
 
 ### Added

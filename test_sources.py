@@ -254,6 +254,73 @@ def _():
     eq(s._last_received, "Ana Panel", "cevap hedefi")
 
 
+# --- speaker echo -------------------------------------------------------
+class FakeSpeakerEcho(FakeSpeaker):
+    """A speaker that is reading a known text right now."""
+
+    def __init__(self, reading=""):
+        super().__init__()
+        self.reading = reading
+
+    def recent_text(self, grace=8.0):
+        return self.reading
+
+
+LIST_READ = ("Listeyi okuyorum. 1 kunaz reklam, 2 kunaz geliştirme, "
+             "3 ana panel, 4 ses kontrolü, 5 pam geliştirme, kapalı, "
+             "6 portal geliştirme.")
+
+
+def echo_stub(reading):
+    s = stub("claude")
+    s.speaker = FakeSpeakerEcho(reading)
+    return s
+
+
+@case("hoparlor yankisi ayiklanir, kullanicinin cumlesi kalir")
+def _():
+    s = echo_stub(LIST_READ)
+    heard = LIST_READ + " Test gönderimi"
+    eq(ClaudeVoice._strip_own_voice(s, heard), "Test gönderimi", "kalan")
+
+
+@case("yanki Whisper'da biraz farkli yazilsa da ayiklanir")
+def _():
+    s = echo_stub(LIST_READ)
+    heard = ("Listeyi okuyorum. 1 kunaz reklam, 2 kunaz geliştirme, "
+             "3 ana panel, 4 ses kontrolü, 5 pan geliştirme, kapalı, "
+             "6 portal geliştirme. Test gönderimi")
+    eq(ClaudeVoice._strip_own_voice(s, heard), "Test gönderimi", "kalan")
+
+
+@case("sadece yanki duyulduysa geriye bir sey kalmaz")
+def _():
+    s = echo_stub(LIST_READ)
+    eq(ClaudeVoice._strip_own_voice(s, LIST_READ), "", "kalan")
+
+
+@case("okuma yokken metne dokunulmaz")
+def _():
+    s = echo_stub("")
+    eq(ClaudeVoice._strip_own_voice(s, "tamam mahmut"), "tamam mahmut", "kalan")
+
+
+@case("okuma sirasinda soylenen kisa komut korunur")
+def _():
+    s = echo_stub("Kunaz Reklam mesajını okuyorum. Migration dosyasını "
+                  "güncelledim, testleri de ekledim.")
+    eq(ClaudeVoice._strip_own_voice(s, "mahmut kes"), "mahmut kes", "komut")
+
+
+@case("yankinin ortasindaki kullanici cumlesi de kurtarilir")
+def _():
+    s = echo_stub(LIST_READ)
+    heard = ("Listeyi okuyorum. 1 kunaz reklam, 2 kunaz geliştirme, "
+             "bunu gönder mahmut, 3 ana panel, 4 ses kontrolü, "
+             "5 pam geliştirme, kapalı, 6 portal geliştirme.")
+    eq(ClaudeVoice._strip_own_voice(s, heard), "bunu gönder mahmut", "kalan")
+
+
 # --- recognising a routine transcript -----------------------------------
 def _transcript(body: bytes) -> str:
     fh = tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False)
