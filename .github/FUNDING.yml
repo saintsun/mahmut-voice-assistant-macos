@@ -2,10 +2,9 @@
 # GitHub Sponsors profile is approved and public; until then this file sits
 # here unused and breaks nothing.
 #
-# TODO (Payoneer): the payment link goes under `custom:` when it is ready.
-# Payoneer links carry an EXPIRY DATE: the one created on 2026-10-15 runs out
-# on 2027-01-15. On that day the link stops working silently, so renew it in
-# Payoneer (Get Paid > Payment Links) and update the URL here.
-#
-#   custom: ["https://...payoneer link..."]
+# The second button is a Payoneer payment link, where the payer types the
+# amount. It carries an EXPIRY DATE: this one was created on 2026-10-15 and
+# runs out on 2027-01-15. It stops working silently that day, so renew it in
+# Payoneer (Get Paid > Payment Links) and replace the URL below.
 github: [saintsun]
+custom: ["https://link.payoneer.com/Token?t=B8694A2C126D470EAE34E7CC7A0817D9&src=pl"]
