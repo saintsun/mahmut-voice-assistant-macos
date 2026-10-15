@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **The app froze while a Bluetooth device reconnected.** A stack sample of a
+  hung run showed the main thread blocked inside CoreAudio's own mutex while
+  another thread sat in CoreAudio too: the microphone watchdog rebuilt the
+  stream on the MAIN thread, and anything else touching PortAudio at that
+  moment deadlocked it. The menu, the panel and the reading all stopped and
+  the process sat at 0% CPU. Three changes: every call into PortAudio goes
+  through one lock, the microphone check runs in its own thread, and the
+  queries that only inform a decision give up on the lock after a second or
+  two and fall back to their safe default instead of waiting.
+- The panel asked CoreAudio for the device list on every poll, about once a
+  second. The list is cached for a few seconds now, and while the stream is
+  being rebuilt the previous list is served instead of blocking.
+
 - **Over speakers, the reading was heard back and sent to Claude.** The
   microphone picks up our own voice together with the user's, so the
   transcript held the whole list that had just been read plus the one

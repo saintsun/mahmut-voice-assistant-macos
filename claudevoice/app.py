@@ -391,7 +391,7 @@ class ClaudeVoice(rumps.App):
         if self._ticks % 5 == 0:
             self._write_state()
         if self._ticks % 10 == 0:            # ~4 sn
-            self._check_mic()
+            self._check_mic_async()
         if self._ticks % 7 == 0:             # ~3 sn
             self._sample_usage()
             self._expire_buffer()
@@ -447,6 +447,26 @@ class ClaudeVoice(rumps.App):
             self._rss_mb = int(out.strip() or 0) / 1024.0
         except Exception:
             pass
+
+    def _check_mic_async(self) -> None:
+        """Runs the microphone check OFF the main thread.
+
+        Rebuilding the stream goes into PortAudio, which goes into CoreAudio.
+        While a Bluetooth device is reconnecting that call can block for a
+        long time, and on the main thread it froze the whole app: no menu, no
+        panel, no reading. It runs in its own thread now, one at a time.
+        """
+        worker = getattr(self, "_mic_worker", None)
+        if worker is not None and worker.is_alive():
+            return                       # onceki kontrol hala suruyor
+        def run():
+            try:
+                self._check_mic()
+            except Exception as exc:
+                print(f"[audio] mikrofon kontrolu: {exc!r}")
+        self._mic_worker = threading.Thread(target=run, daemon=True,
+                                            name="claudevoice-mic-check")
+        self._mic_worker.start()
 
     def _check_mic(self) -> None:
         """Catches a lost device and rebuilds the stream.

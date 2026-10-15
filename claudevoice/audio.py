@@ -7,6 +7,7 @@ threshold.
 from __future__ import annotations
 
 import collections
+import contextlib
 import queue
 import threading
 import time
@@ -107,26 +108,64 @@ _HEADSET_HINTS = (
 )
 
 
+# Every call into PortAudio goes through this lock. Two threads inside
+# CoreAudio at the same time can deadlock on its own mutex: the app froze for
+# an hour when the microphone was being rebuilt (AirPods reconnecting) while
+# another thread asked for the device list. One at a time, always.
+PA_LOCK = threading.RLock()
+
+@contextlib.contextmanager
+def pa_try(timeout: float = 2.0):
+    """Takes PA_LOCK, but gives up after `timeout` instead of waiting.
+
+    Used by the questions that only INFORM a decision (which output is in
+    use, are input and output the same device). While the stream is being
+    rebuilt the lock can be held for a while, and a reading must not wait for
+    it; the caller falls back to its safe default instead.
+    """
+    got = PA_LOCK.acquire(timeout=timeout)
+    try:
+        yield got
+    finally:
+        if got:
+            PA_LOCK.release()
+
+
+_DEV_TTL = 5.0                     # cihaz listesi onbellegi (saniye)
+_dev_cache: tuple[float, dict] = (0.0, {})
+
+
 def _inputs():
     import sounddevice as sd
-    try:
-        devices = sd.query_devices()
-    except Exception:
-        return []
+    with PA_LOCK:
+        try:
+            devices = sd.query_devices()
+        except Exception:
+            return []
     return [(i, d) for i, d in enumerate(devices) if d["max_input_channels"] > 0]
 
 
 def _outputs():
     import sounddevice as sd
-    try:
-        devices = sd.query_devices()
-    except Exception:
-        return []
+    with PA_LOCK:
+        try:
+            devices = sd.query_devices()
+        except Exception:
+            return []
     return [(i, d) for i, d in enumerate(devices) if d["max_output_channels"] > 0]
 
 
-def list_devices() -> dict:
-    """Input and output devices to show in the panel."""
+def list_devices(ttl: float = _DEV_TTL) -> dict:
+    """Input and output devices to show in the panel.
+
+    The panel polls the state about once a second; asking CoreAudio that often
+    is both wasteful and one more chance to collide with a device rebuild, so
+    the answer is cached for a few seconds.
+    """
+    global _dev_cache
+    at, rows_cached = _dev_cache
+    if rows_cached and time.monotonic() - at < ttl:
+        return rows_cached
     def rows(items):
         seen, out = set(), []
         for i, d in items:
@@ -135,7 +174,14 @@ def list_devices() -> dict:
                 seen.add(name)
                 out.append({"index": i, "name": name})
         return out
-    return {"inputs": rows(_inputs()), "outputs": rows(_outputs())}
+    # While the stream is being rebuilt the lock is busy; the panel must not
+    # hang waiting for it, so the previous list is served instead.
+    with pa_try(1.0) as got:
+        if not got:
+            return rows_cached or {"inputs": [], "outputs": []}
+        data = {"inputs": rows(_inputs()), "outputs": rows(_outputs())}
+    _dev_cache = (time.monotonic(), data)
+    return data
 
 
 def pick_device(want, items) -> tuple[int | None, str] | None:
@@ -189,7 +235,10 @@ def shares_bluetooth_device(input_name: str) -> bool:
     if not name or any(h in name for h in _BUILTIN_HINTS):
         return False
     try:
-        out = str(sd.query_devices(kind="output")["name"]).strip().lower()
+        with pa_try() as got:
+            if not got:
+                return False             # mesgul: kulaklik varsay (guvenli taraf)
+            out = str(sd.query_devices(kind="output")["name"]).strip().lower()
     except Exception:
         return False
     return name == out
@@ -203,7 +252,10 @@ def output_is_loud(input_name: str = "") -> bool:
     both input and output (AirPods) it counts as a headset.
     """
     try:
-        out = str(sd.query_devices(kind="output")["name"])
+        with pa_try() as got:
+            if not got:
+                return True              # mesgul: hoparlor varsay
+            out = str(sd.query_devices(kind="output")["name"])
     except Exception:
         return True                      # when unsure, assume speakers (the safe side)
     if input_name and out.strip().lower() == input_name.strip().lower():
@@ -308,15 +360,16 @@ class Microphone:
 
     def start(self) -> bool:
         try:
-            self._stream = sd.InputStream(
-                samplerate=self.sr,
-                blocksize=self.frame,
-                dtype="float32",
-                channels=1,
-                device=self.device,
-                callback=self._callback,
-            )
-            self._stream.start()
+            with PA_LOCK:
+                self._stream = sd.InputStream(
+                    samplerate=self.sr,
+                    blocksize=self.frame,
+                    dtype="float32",
+                    channels=1,
+                    device=self.device,
+                    callback=self._callback,
+                )
+                self._stream.start()
             self.error = None
             return True
         except Exception as exc:
@@ -337,10 +390,13 @@ class Microphone:
             was_on = self.enabled
             self.stop()
             try:
-                sd._terminate()
-                sd._initialize()
+                with PA_LOCK:
+                    sd._terminate()
+                    sd._initialize()
             except Exception as exc:
                 print(f"[audio] cihaz listesi tazelenemedi: {exc}")
+            global _dev_cache
+            _dev_cache = (0.0, {})       # liste degisti, onbellegi dusur
             idx, name = resolve_device(self.cfg)
             changed = name != self.device_name
             self.device, self.device_name = idx, name
@@ -385,8 +441,9 @@ class Microphone:
     def stop(self) -> None:
         if self._stream is not None:
             try:
-                self._stream.stop()
-                self._stream.close()
+                with PA_LOCK:
+                    self._stream.stop()
+                    self._stream.close()
             except Exception:
                 pass
             self._stream = None
