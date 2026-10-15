@@ -16,7 +16,7 @@ Her şey bilgisayarında çalışır, ses hiçbir yere gönderilmez.
 
 *[English](README.md) · **Türkçe***
 
-*v1.0.0, [değişiklikler](CHANGELOG.md)*
+*v1.1.0, [değişiklikler](CHANGELOG.md)*
 
 </div>
 

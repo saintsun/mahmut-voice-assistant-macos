@@ -16,7 +16,7 @@ back out loud. Everything runs on your machine, and no audio ever leaves it.
 
 ***English** · [Türkçe](README.tr.md)*
 
-*v1.0.0, [changelog](CHANGELOG.md)*
+*v1.1.0, [changelog](CHANGELOG.md)*
 
 </div>
 
