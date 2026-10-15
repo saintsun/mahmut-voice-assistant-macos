@@ -13,7 +13,7 @@ cat <<'BANNER'
   | |  | | (_| | | | | | | | | | |_| | |_
   |_|  |_|\__,_|_| |_|_| |_| |_|\__,_|\__|   Voice Assistant
 
-  Claude Code ile sesli konusma — kurulum basliyor.
+  Claude Code ile sesli konusma. Kurulum basliyor.
 BANNER
 ./setup.sh
 echo

@@ -51,7 +51,7 @@ if [ "$AX" != "True" ]; then
      3. Anahtari ACIK konuma getir
      4. Bu scripti tekrar calistir: ./verify.sh
 
-   (Sadece kapatip acmak yetmez — girisi silip yeniden eklemek gerekir.)
+   (Sadece kapatip acmak yetmez; girisi silip yeniden eklemek gerekir.)
 EOF
   exit 1
 fi

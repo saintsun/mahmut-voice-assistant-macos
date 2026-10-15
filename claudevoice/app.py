@@ -585,17 +585,17 @@ class ClaudeVoice(rumps.App):
         mode = self.cfg.get("ui", "start_mode", "sleep")
         if mode == "off":
             self._set_state(OFF)
-            self._set_status("kapalı — menüden aç")
+            self._set_status("kapalı, menüden aç")
             return
         # Open the microphone: "mahmut başla" can only be heard with it open.
         self.mic.set_enabled(True)
         if mode == "listen":
             self.explicit_listen = True
             self._set_state(LIVE)
-            self._set_status(f'dinliyorum — bitince "tamam {self.call_name}" de')
+            self._set_status(f'dinliyorum, bitince "tamam {self.call_name}" de')
         else:
             self._set_state(SLEEP)
-            self._set_status(f'hazır — "{self.call_name} başla" de')
+            self._set_status(f'hazır, "{self.call_name} başla" de')
 
     # ------------------------------------------------------------ state
     def _set_status(self, text: str) -> None:
@@ -632,7 +632,7 @@ class ClaudeVoice(rumps.App):
             self.explicit_listen = False
             self._set_state(ARMED if self.wake_mode else LIVE)
             self.mic.set_enabled(True)
-            self._set_status(f'dinliyorum — bitince "tamam {self.call_name}" de')
+            self._set_status(f'dinliyorum, bitince "tamam {self.call_name}" de')
         else:
             self.mic.set_enabled(False)
             self.explicit_listen = False
@@ -759,7 +759,7 @@ class ClaudeVoice(rumps.App):
                              "n": self._count(f"hk:{i}")}
                             for i, (_, _, _, lbl) in enumerate(self.hotkeys)]
                          + [{"key": f"fav:{i}",
-                             "label": f"{i}. sıra — {f['name']}",
+                             "label": f"{i}. sıra: {f['name']}",
                              "sample": self._sample(f"fav:{i}"),
                              "n": self._count(f"fav:{i}")}
                             for i, f in enumerate(self.favorites, 1)]),
@@ -974,7 +974,7 @@ class ClaudeVoice(rumps.App):
             self.mic.set_enabled(True)
             self.mic.unmute_after(0)
             self._wake_if_asleep()
-            self._set_status("konuş — duyduğumu onayına sunacağım")
+            self._set_status("konuş, duyduğumu onayına sunacağım")
         elif action == "capture_cancel":
             self._capture = None
             self._capture_text = ""
@@ -1186,7 +1186,7 @@ class ClaudeVoice(rumps.App):
                 if hit > best_hit:
                     best, best_words, best_hit = canon, words, hit
         if best is None:
-            return False, (f"{len(heard)} kelimelik bir kalıp yok — "
+            return False, (f"{len(heard)} kelimelik bir kalıp yok; "
                            f"“Cümleyi ekle”yi kullan")
         heard = best_words
         added, already = [], 0
@@ -1198,7 +1198,7 @@ class ClaudeVoice(rumps.App):
             if ok:
                 added.append(f"{h}→{c}")
         if not added:
-            return True, "zaten tutuyor — bu cümle bu komutu tetikliyor"
+            return True, "zaten tutuyor: bu cümle bu komutu tetikliyor"
         return True, ", ".join(added) + (f" ({already} zaten tutuyordu)"
                                          if already else "")
 
@@ -1388,7 +1388,7 @@ class ClaudeVoice(rumps.App):
         for idx, pats in getattr(self, "fav_patterns", []):
             if m.find_tail(text, pats)[0]:
                 nm = self.favorites[idx - 1]["name"] if idx <= len(self.favorites) else ""
-                return {"cmd": f"fav:{idx}", "label": f"#{idx} seç — {nm}"}
+                return {"cmd": f"fav:{idx}", "label": f"#{idx} seç: {nm}"}
         if m.is_list(text):
             return {"cmd": "list", "label": "📋 Listeyi oku"}
         for i, (hk, pats, _, lbl) in enumerate(self.hotkeys):
@@ -1400,13 +1400,13 @@ class ClaudeVoice(rumps.App):
             return {"cmd": "reply", "label": "↩︎ Cevapla"}
         ok, name = m.find_switch(text)
         if ok:
-            return {"cmd": "switch", "label": f"⇄ Konuşma seç — {name!r}"}
+            return {"cmd": "switch", "label": f"⇄ Konuşma seç: {name!r}"}
         ok, payload = m.find_send(text)
         if ok:
-            return {"cmd": "send", "label": f"📨 Gönder — {payload!r}"}
+            return {"cmd": "send", "label": f"📨 Gönder: {payload!r}"}
         if m.find_wake(text) is not None:
             return {"cmd": "wake", "label": "🎙 Uyandır"}
-        return {"cmd": None, "label": "— komut değil, tampona eklenir"}
+        return {"cmd": None, "label": "· komut değil, tampona eklenir"}
 
     def set_name(self, new: str) -> tuple[bool, str]:
         """Changes the wake name and migrates ALL patterns to it."""
@@ -1447,7 +1447,7 @@ class ClaudeVoice(rumps.App):
         self.call_name = new_f.capitalize()
         self._rebuild_matcher()
         print(f"[ayar] çağrı adı: {old_f!r} → {new_f!r}")
-        return True, (f"çağrı adı “{self.call_name}” oldu — "
+        return True, (f"çağrı adı “{self.call_name}” oldu; "
                       f"yazım setini yeniden oluşturman gerekebilir")
 
     def load_langpack(self, code: str) -> tuple[bool, str]:
@@ -1844,7 +1844,7 @@ class ClaudeVoice(rumps.App):
                 "text": text,
                 "result": self._last_action,
                 "fired": bool(self._last_action
-                              and not self._last_action.startswith(("—", "…"))),
+                              and not self._last_action.startswith(("·", "…"))),
             })
 
     def _handle_text(self, text: str) -> None:
@@ -1911,7 +1911,7 @@ class ClaudeVoice(rumps.App):
         # likely Claude's own voice. Nothing beyond the commands above is
         # processed, so the text being read never goes out as a message.
         if self.speaker.busy:
-            self._last_action = "— okuma sürüyor"
+            self._last_action = "· okuma sürüyor"
             return
 
         with self.lock:
@@ -1928,7 +1928,7 @@ class ClaudeVoice(rumps.App):
                 with self.lock:
                     self.buffer = cand
                 self._buffer_at = time.monotonic()
-                self._last_action = "— durduruldu (tamponda)"
+                self._last_action = "· durduruldu (tamponda)"
                 return
             self._wake_if_asleep()
             with self.lock:
@@ -1944,7 +1944,7 @@ class ClaudeVoice(rumps.App):
         if state == ARMED:
             rest = self.matcher.find_wake(text)
             if rest is None:
-                self._last_action = "— uyandırma bekleniyor"
+                self._last_action = "· uyandırma bekleniyor"
                 return
             self._set_state(LIVE)
             self._set_status("dinliyorum…")
@@ -2033,7 +2033,7 @@ class ClaudeVoice(rumps.App):
         with self.lock:
             self.buffer = ""
             self.state = LIVE
-        self._set_status(f'dinliyorum — bitince "tamam {self.call_name}" de')
+        self._set_status(f'dinliyorum, bitince "tamam {self.call_name}" de')
         if self.speaker.enabled:
             self.speaker.say(self.cfg.get("tts", "listen_reply", "Dinliyorum."))
 
@@ -2051,7 +2051,7 @@ class ClaudeVoice(rumps.App):
         with self.lock:
             self.buffer = ""
             self.state = SLEEP
-        self._set_status(f'durduruldu — "{self.call_name} başla" ile aç')
+        self._set_status(f'durduruldu, "{self.call_name} başla" ile aç')
         if self.speaker.enabled:
             self.speaker.say(self.cfg.get("tts", "sleep_reply", "Tamam, tatildeyim."))
 
@@ -2260,7 +2260,7 @@ class ClaudeVoice(rumps.App):
         ok = self.injector.restore_front(pid, delay)
         after = self._app_name(self.injector.capture_front())
         print(f"[odak] {name!r} iadesi: {'başarılı' if ok else 'BAŞARISIZ'} "
-              f"— şimdi önde: {after!r}")
+              f"şimdi önde: {after!r}")
         self._set_status(f"geçildi, odak → {after}")
 
     def _say_tpl(self, key: str, fallback: str, name: str) -> None:
@@ -2330,7 +2330,7 @@ class ClaudeVoice(rumps.App):
                 self.speaker.say("Henüz gelen mesaj yok.")
             return
         self.reply_to = target
-        self._set_status(f"cevap hedefi: {target} — söyle, sonra 'tamam claude'")
+        self._set_status(f"cevap hedefi: {target}, söyle sonra 'tamam claude'")
         if self.speaker.enabled:
             tpl = self.cfg.get("tts", "reply_template", "{dative} cevap veriyorsun.")
             self.speaker.say(tpl.format(dative=dative(target), name=target))
@@ -2463,7 +2463,7 @@ class ClaudeVoice(rumps.App):
                                  args=(spoken_name, sid), daemon=True,
                                  name="claudevoice-resume").start()
                 return
-            near = ranked[0][0].name if ranked else "—"
+            near = ranked[0][0].name if ranked else "yok"
             self._set_status(f"konuşma bulunamadı: {spoken_name} (en yakın: {near})")
             self._notify("Konuşma bulunamadı", f"{spoken_name} → en yakın: {near}")
             return
@@ -2514,7 +2514,7 @@ def _run_inject_test() -> None:
         out["claude_running"] = app is not None
         if app is not None:
             out["focused_role"] = inj.focused_role(app.processIdentifier())
-            ok, note = inj.send("ClaudeVoice testi — gönderilmedi, silebilirsin.")
+            ok, note = inj.send("ClaudeVoice testi, gönderilmedi, silebilirsin.")
             out["injected"] = ok
             out["note"] = note
     except Exception as exc:

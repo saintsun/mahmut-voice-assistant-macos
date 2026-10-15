@@ -23,7 +23,7 @@ say_err()  { printf '    \033[1;31m✗\033[0m %s\n' "$1"; }
 say_step "makine kontrol ediliyor"
 [ "$(uname -s)" = "Darwin" ] || { say_err "Bu uygulama yalnizca macOS icindir."; exit 1; }
 [ "$(uname -m)" = "arm64" ] || {
-  say_err "Apple Silicon (M serisi) gerekiyor — konusma tanima GPU'da calisiyor."
+  say_err "Apple Silicon (M serisi) gerekiyor: konusma tanima GPU'da calisiyor."
   exit 1; }
 MACOS="$(sw_vers -productVersion)"
 say_ok "macOS $MACOS / Apple Silicon"
@@ -78,7 +78,7 @@ if [ -z "$PY" ]; then
   PY="$(brew --prefix)/bin/python3.13"
 fi
 [ -x "$PY" ] || { say_err "python bulunamadi"; exit 1; }
-say_ok "$("$PY" -V) — $PY"
+say_ok "$("$PY" -V) ($PY)"
 
 # The bundle runs python inside itself: the embed link flags are required.
 PYV="$("$PY" -c 'import sys;print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
@@ -159,8 +159,8 @@ fi
 
 printf '\n\033[1;36m==> izinler\033[0m\n'
 printf '    Iki izin gerekiyor; ikisi de Sistem Ayarlari > Gizlilik ve Guvenlik altinda:\n'
-printf '      1) Mikrofon        — konustugunu duymasi icin\n'
-printf '      2) Erisilebilirlik — mesaji Claude penceresine yazmasi icin\n'
+printf '      1) Mikrofon        : konustugunu duymasi icin\n'
+printf '      2) Erisilebilirlik : mesaji Claude penceresine yazmasi icin\n'
 printf '    Erisilebilirlik listesinde Mahmut yoksa: "+" > bu klasordeki Mahmut.app\n'
 printf '    Ayar penceresi aciliyor...\n'
 sleep 1
@@ -173,7 +173,7 @@ printf '      ./stop.sh && open Mahmut.app\n'
 auto="$(ask "$(printf '\n\033[1;36m==> acilista otomatik baslasin mi?\033[0m [E/h] ')" h)"
 case "${auto:-e}" in
   [eEyY]*) ./install_autostart.sh ;;
-  *) echo "    atlandi — sonra: ./install_autostart.sh" ;;
+  *) echo "    atlandi, sonra: ./install_autostart.sh" ;;
 esac
 
 cat <<'EOF'

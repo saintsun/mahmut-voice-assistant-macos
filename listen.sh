@@ -1,7 +1,7 @@
 #!/bin/bash
 # Live view of what Mahmut hears. Speak, and see what it understood.
 cd "$(dirname "$0")"
-echo "Konuş — Mahmut'un duyduğu metin burada görünecek. Çıkmak için Ctrl+C."
+echo "Konuş, Mahmut'un duyduğu metin burada görünecek. Çıkmak için Ctrl+C."
 echo "----------------------------------------------------------------"
 LAST=""
 while true; do

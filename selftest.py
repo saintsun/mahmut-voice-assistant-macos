@@ -54,7 +54,7 @@ def main() -> int:
         elif state.get("ax_trusted"):
             print(f"{OK} Erisilebilirlik izni TANINDI")
         else:
-            fail("Erisilebilirlik izni YOK — mesaj gonderilemez",
+            fail("Erisilebilirlik izni YOK: mesaj gonderilemez",
                  "Sistem Ayarlari > Gizlilik ve Guvenlik > Erisilebilirlik: "
                  "Mahmut girisini '-' ile SIL, '+' ile tekrar ekle, "
                  "sonra uygulamayi kapatip ac.")
@@ -65,7 +65,7 @@ def main() -> int:
                   else f"{BAD} Model hatasi: {state.get('stt_error')}")
     except FileNotFoundError:
         print(f"{WARN} Mahmut.app hic calismamis "
-              "— `open Mahmut.app` ile baslat")
+              "(`open Mahmut.app` ile baslat)")
     except Exception as exc:
         fail(f"Durum okunamadi: {exc}", "./run.sh ile calistirip hatayi gor.")
 
@@ -103,7 +103,7 @@ def main() -> int:
         elif res > 1e-6:
             print(f"{OK} Ses akiyor (RMS {res:.5f})")
         else:
-            print(f"{WARN} Sinyal geliyor ama tamamen sessiz — mikrofon kapali olabilir")
+            print(f"{WARN} Sinyal geliyor ama tamamen sessiz: mikrofon kapali olabilir")
     except Exception as exc:
         fail(f"Mikrofon acilamadi: {exc}",
              "Sistem Ayarlari > Gizlilik ve Guvenlik > Mikrofon > Mahmut.app ac.")
@@ -116,7 +116,7 @@ def main() -> int:
         if app:
             print(f"{OK} Claude.app calisiyor (pid {app.processIdentifier()})")
         else:
-            print(f"{WARN} Claude.app acik degil — mesaj gonderilemez, once ac")
+            print(f"{WARN} Claude.app acik degil: mesaj gonderilemez, once ac")
     except Exception as exc:
         fail(f"Claude aranamadi: {exc}", "./setup.sh calistir.")
 
@@ -129,7 +129,7 @@ def main() -> int:
                   + ", ".join(x.name for x in ses[:4])
                   + (" …" if len(ses) > 4 else ""))
         else:
-            print(f"{WARN} Canli oturum yok — Claude Code'da bir konusma ac")
+            print(f"{WARN} Canli oturum yok: Claude Code'da bir konusma ac")
     except Exception as exc:
         fail(f"Oturumlar okunamadi: {exc}", "./setup.sh calistir.")
 
@@ -148,7 +148,7 @@ def main() -> int:
         fail(f"Ses kontrolu basarisiz: {exc}", "say komutunu kontrol et.")
 
     if "--mic" in sys.argv:
-        print("\nCanli test — 6 saniye konus (ornek: "
+        print("\nCanli test: 6 saniye konus (ornek: "
               "\"backend'deki endpoint'i refactor et tamam mahmut\")")
         try:
             import numpy as np
