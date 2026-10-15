@@ -82,6 +82,18 @@ def _dedup(word: str) -> str:
     return "".join(out)
 
 
+def word_eq_strict(spoken: str, target: str) -> bool:
+    """Equality with NO letter tolerance (doubled letters still ignored).
+
+    Used where a single word is the whole command. "over" is a send phrase on
+    its own, and one letter of tolerance made the very common Turkish word
+    "ver" match it: an entire conversation was sent to Claude without the
+    send phrase ever being said. With no context around it, a one-word
+    command has to be heard exactly.
+    """
+    return spoken == target or _dedup(spoken) == _dedup(target)
+
+
 def word_eq(spoken: str, target: str) -> bool:
     """Exact for short words, one-letter tolerant from 4 letters up.
 
@@ -195,9 +207,11 @@ class Matcher:
                 continue
             tail = toks[-n:]
             ok = True
+            # A one-word pattern carries no context, so it must match exactly.
+            eq = word_eq_strict if n == 1 else word_eq
             for (spoken, _, _), target in zip(tail, pat):
                 hit = (self._claude_like(spoken) if target in self._variants
-                       else word_eq(spoken, target))
+                       else eq(spoken, target))
                 if not hit:
                     ok = False
                     break

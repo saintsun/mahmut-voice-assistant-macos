@@ -443,6 +443,7 @@ kadar değiştirebilirsin.
 ```bash
 ./test_devices.py   # cihaz seçimi kuralları (ses donanımı gerekmez)
 ./test_sources.py   # hedef, susturma ve rutin tespiti
+./test_phrases.py   # komut eşleşmesi: ne tetikler, ne tetiklememeli
 ./selftest.py       # izinler, mikrofon, model, ses, canlı oturumlar
 ./check_panel.sh    # panel JavaScript sözdizimi
 ./verify.sh         # uygulamayı yeniden başlatır ve yazma yolunu dener

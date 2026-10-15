@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A conversation was sent to Claude without the send phrase.** "over" is a
+  send phrase on its own, and fuzzy matching allows one letter of difference
+  from four letters up, so the very common Turkish word "ver" matched it: any
+  sentence ending in "ver" shipped the buffer. A one-word pattern carries no
+  context around it, so it now has to be heard exactly (doubled letters are
+  still ignored). "over" on its own is also out of the Turkish command set;
+  "tamam over" stays.
+
 - **The app froze while a Bluetooth device reconnected.** A stack sample of a
   hung run showed the main thread blocked inside CoreAudio's own mutex while
   another thread sat in CoreAudio too: the microphone watchdog rebuilt the

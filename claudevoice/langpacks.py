@@ -29,7 +29,7 @@ PACKS: dict[str, dict] = {
         "select_verbs": ("sec", "getir", "ac", "gec"),
         "phrases": {
             "send": ["tamam {name}", "{name} tamam", "tamam gonder",
-                     "gonder {name}", "{name} gonder", "over", "tamam over",
+                     "gonder {name}", "{name} gonder", "tamam over",
                      "gonderebilirsin", "yolla {name}", "{name} yolla"],
             "cancel": ["iptal {name}", "{name} iptal", "bosver {name}",
                        "sil {name}", "unut {name}", "iptal et {name}"],
