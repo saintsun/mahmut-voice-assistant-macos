@@ -3,8 +3,10 @@
 # here unused and breaks nothing.
 #
 # The second button is a Payoneer payment link, where the payer types the
-# amount. It carries an EXPIRY DATE: this one was created on 2026-10-15 and
-# runs out on 2027-01-15. It stops working silently that day, so renew it in
-# Payoneer (Get Paid > Payment Links) and replace the URL below.
+# amount; the URL takes no amount parameter, so one link covers every tier.
+# Two things about it: it EXPIRES on 2027-10-15, and the current one is
+# marked SINGLE USE, which means the first payment consumes it. Replace it
+# with a reusable link from Payoneer (Get Paid > Payment Links) and paste the
+# new URL below.
 github: [saintsun]
 custom: ["https://link.payoneer.com/Token?t=B8694A2C126D470EAE34E7CC7A0817D9&src=pl"]
