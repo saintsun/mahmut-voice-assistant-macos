@@ -31,7 +31,35 @@ kopyalayıp yapıştır ve Enter'a bas:
 curl -fsSL https://raw.githubusercontent.com/saintsun/mahmut-voice-assistant-macos/main/install.sh | bash
 ```
 
-Hepsi bu. Komut gereken her şeyi kendisi indirir ve kurar:
+Hepsi bu. Toplam 10-15 dakika sürer, çoğu indirme beklemesi. Sorarsa **E**
+yazıp Enter'a bas; sonunda uygulama kendiliğinden açılır.
+
+---
+
+## Mahmut'a ısmarla
+
+Proje ücretsiz ve öyle kalacak. Faydalı bulduysan Mahmut'un karnını
+doyurabilirsin.
+
+[![Payoneer](https://img.shields.io/badge/Payoneer-Mahmut'a%20%C4%B1smarla-FF4800?style=for-the-badge&logo=payoneer&logoColor=white&labelColor=0D1117)](https://link.payoneer.com/Token?t=B8694A2C126D470EAE34E7CC7A0817D9&src=pl)
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor%20ol-39FF14?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=0D1117)](https://github.com/sponsors/saintsun)
+
+| | |
+|---|---|
+| $5 | Bir türk kahvesi |
+| $10 | Döner ekmek |
+| $25 | İskender |
+| $50 | Nargile |
+| $100 | Pavyon |
+
+Payoneer'da tutarı sen yazıyorsun, kart ile ödeniyor. GitHub Sponsors
+butonu profil onaylandığında devreye girer.
+
+---
+
+## Kurulumun ayrıntıları
+
+Komut gereken her şeyi kendisi indirir ve kurar:
 
 | | |
 |---|---|
@@ -39,9 +67,6 @@ Hepsi bu. Komut gereken her şeyi kendisi indirir ve kurar:
 | Homebrew, PortAudio, FFmpeg, Python | eksikse kurulur |
 | Konuşma tanıma modeli | 1.5 GB, en uzun adım bu |
 | Uygulama | derlenir ve başlatılır |
-
-Toplam 10-15 dakika sürer, çoğu indirme beklemesi. Sorarsa **E** yazıp Enter'a
-bas.
 
 **Gereken:** Apple Silicon Mac (M1/M2/M3/M4) ve macOS 13+. Bir de Claude Code
 veya Codex masaüstü uygulaması kurulu olmalı.
@@ -85,27 +110,6 @@ Claude Code'u aç, bir sohbete gir, sonra sırayla:
 3. **"tamam Mahmut"** diyince mesaj gider
 
 Cevap geldiğinde sesli okur. Kesmek için **"Mahmut kes"** ya da **⌥⌘K**.
-
----
-
-## Mahmut'a ısmarla
-
-Proje ücretsiz ve öyle kalacak. Faydalı bulduysan Mahmut'un karnını
-doyurabilirsin.
-
-[![Payoneer](https://img.shields.io/badge/Payoneer-Mahmut'a%20%C4%B1smarla-FF4800?style=for-the-badge&logo=payoneer&logoColor=white&labelColor=0D1117)](https://link.payoneer.com/Token?t=B8694A2C126D470EAE34E7CC7A0817D9&src=pl)
-[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor%20ol-39FF14?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=0D1117)](https://github.com/sponsors/saintsun)
-
-| | |
-|---|---|
-| $5 | Bir türk kahvesi |
-| $10 | Döner ekmek |
-| $25 | İskender |
-| $50 | Nargile |
-| $100 | Pavyon |
-
-Payoneer'da tutarı sen yazıyorsun, kart ile ödeniyor. GitHub Sponsors
-butonu profil onaylandığında devreye girer.
 
 ---
 
