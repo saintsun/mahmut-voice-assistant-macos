@@ -273,8 +273,12 @@ class Speaker:
             return True
         try:
             import sounddevice as sd
+            from .audio import pa_try
             want = self.output_device
-            cur = sd.query_devices(kind="output")
+            with pa_try() as got:         # mesgulse bekleme, afplay'e dus
+                if not got:
+                    return False
+                cur = sd.query_devices(kind="output")
             if isinstance(want, int):
                 return int(cur["index"]) == want
             return str(cur["name"]).strip().lower() == str(want).strip().lower()
@@ -298,10 +302,15 @@ class Speaker:
                 if width != 2:
                     return False                 # unexpected format
                 block = 1024
-                stream = sd.OutputStream(samplerate=sr, channels=ch,
-                                         dtype="float32", blocksize=block,
-                                         device=self.output_device)
-                stream.start()
+                # Only opening and closing touch CoreAudio's own lock; the
+                # writes below run on an already open stream, so the lock is
+                # not held for the whole playback.
+                from .audio import PA_LOCK
+                with PA_LOCK:
+                    stream = sd.OutputStream(samplerate=sr, channels=ch,
+                                             dtype="float32", blocksize=block,
+                                             device=self.output_device)
+                    stream.start()
                 try:
                     while not self._abort.is_set():
                         raw = w.readframes(block)
@@ -316,7 +325,8 @@ class Speaker:
                         stream.write(a.reshape(-1, ch))
                 finally:
                     try:
-                        stream.stop(); stream.close()
+                        with PA_LOCK:
+                            stream.stop(); stream.close()
                     except Exception:
                         pass
             return True
