@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   echoed runs is dropped as well, because the microphone mishears our own
   voice now and then. With headphones nothing changes, there is no echo
   there.
+- The broken start of an echo stayed behind. Demanding an exact run of words
+  left the mangled ones in place ("Ses Kontrolü mesajını okuyorum" comes back
+  as "6 kontrolü mesajin okuyoru", and three of those four words aligned, not
+  four). The heard words are aligned against the spoken ones in order now,
+  and a region counts as echo when most of it aligns, so the misheard words
+  in between go with it. A couple of shared words still do not silence the
+  user: the region has to be at least four words long.
 
 ## [1.1.0] - 2026-10-15
 

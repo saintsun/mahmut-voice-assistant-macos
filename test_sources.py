@@ -312,6 +312,32 @@ def _():
     eq(ClaudeVoice._strip_own_voice(s, "mahmut kes"), "mahmut kes", "komut")
 
 
+@case("bozuk duyulan anons on eki de ayiklanir")
+def _():
+    # Gercek kayit: "Ses Kontrolü mesajını okuyorum." mikrofona
+    # "6 kontrolü mesajin okuyoru" olarak dondu.
+    s = echo_stub("Ses Kontrolü mesajını okuyorum. Mesaj temiz geldi, "
+                  "yankı bulaşmamış.")
+    heard = "6 kontrolü mesajin okuyoru Son halini pushla"
+    eq(ClaudeVoice._strip_own_voice(s, heard), "Son halini pushla", "kalan")
+
+
+@case("anons on eki + metin yankisi, arada kullanici cumlesi")
+def _():
+    s = echo_stub("Kunaz Reklam mesajını okuyorum. Testler yesil, 24 vaka "
+                  "geciyor ve panel temiz.")
+    heard = ("kunaz reklam mesajin okuyoru testler yesil 24 vaka geciyor "
+             "bunu gönder mahmut")
+    eq(ClaudeVoice._strip_own_voice(s, heard), "bunu gönder mahmut", "kalan")
+
+
+@case("okunanla ortak birkac kelime kullaniciyi susturmaz")
+def _():
+    s = echo_stub("Testleri de ekledim, migration dosyasını güncelledim.")
+    eq(ClaudeVoice._strip_own_voice(s, "testleri de gönder mahmut"),
+       "testleri de gönder mahmut", "kullanici cumlesi")
+
+
 @case("yankinin ortasindaki kullanici cumlesi de kurtarilir")
 def _():
     s = echo_stub(LIST_READ)
