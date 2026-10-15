@@ -1690,7 +1690,50 @@ class ClaudeVoice(rumps.App):
     # ------------------------------------------------------------ TTS bridge
     # A run this long counted as an echo; shorter overlaps can easily be the
     # user's own words ("kunaz reklam" appears in the list we read out).
-    ECHO_RUN = 4
+    ECHO_RUN = 4          # bu uzunluktan kisa bolge yanki sayilmaz
+    ECHO_DENSITY = 0.6    # bolgedeki kelimelerin bu orani okunan metne oturmali
+
+    def _echo_mask(self, heard: list[str], pool: list[str]) -> list[bool]:
+        """Which heard words come from the text being read?
+
+        The microphone mangles our own voice ("Ses Kontrolü mesajını
+        okuyorum" comes back as "6 kontrolü mesajin okuyoru"), so demanding
+        an exact run leaves the broken words behind. The heard words are
+        aligned against the spoken ones in order (a longest-common-sequence
+        walk with fuzzy word comparison), and a word counts as echo when its
+        neighbourhood is mostly aligned. That way the words in between, which
+        were heard wrong, go with the run they belong to.
+        """
+        n, m = len(heard), len(pool)
+        # dp[i][j]: length of the alignment from heard[i:] and pool[j:]
+        dp = [[0] * (m + 1) for _ in range(n + 1)]
+        for i in range(n - 1, -1, -1):
+            row, nxt = dp[i], dp[i + 1]
+            for j in range(m - 1, -1, -1):
+                row[j] = (nxt[j + 1] + 1 if word_eq(heard[i], pool[j])
+                          else max(nxt[j], row[j + 1]))
+        hit = [False] * n
+        i = j = 0
+        while i < n and j < m:
+            if word_eq(heard[i], pool[j]):
+                hit[i] = True
+                i += 1
+                j += 1
+            elif dp[i + 1][j] >= dp[i][j + 1]:
+                i += 1
+            else:
+                j += 1
+        # Density over a small window: a lone hit is not an echo, and a lone
+        # miss inside a run does not break it.
+        mask = [False] * n
+        half = self.ECHO_RUN // 2
+        for i in range(n):
+            lo, hi = max(0, i - half), min(n, i + half + 1)
+            window = hit[lo:hi]
+            if len(window) >= self.ECHO_RUN - 1 and \
+                    sum(window) / len(window) >= self.ECHO_DENSITY:
+                mask[i] = True
+        return mask
 
     def _strip_own_voice(self, text: str) -> str:
         """Removes the part of the heard text that we are reading out loud.
@@ -1699,11 +1742,7 @@ class ClaudeVoice(rumps.App):
         transcript then holds both: the whole list we just read followed by
         the one sentence the user actually said. Dropping the line as an echo
         loses that sentence, keeping it sends the list back to Claude, so the
-        echoed runs are cut out and whatever is left is handled normally.
-
-        A run of at least ECHO_RUN words that appears in the same order in the
-        text being read counts as an echo. Word comparison is fuzzy, because
-        the microphone hears our own voice imperfectly as well.
+        echoed part is cut out and whatever is left is handled normally.
         """
         spoken = self.speaker.recent_text()
         if not spoken:
@@ -1714,22 +1753,23 @@ class ClaudeVoice(rumps.App):
             return text
         if self._is_own_voice(text):      # tamami yanki
             return ""
-        n, keep, i = len(toks), [True] * len(toks), 0
+        n = len(toks)
+        mask = self._echo_mask([w for w, _, _ in toks], pool)
+        keep = [not x for x in mask]
+        # Only regions of a decent size are dropped: a couple of words that
+        # happen to appear in the reading are usually the user's own.
+        i = 0
         while i < n:
-            best = 0
-            for j in range(len(pool)):
-                k = 0
-                while (i + k < n and j + k < len(pool)
-                       and word_eq(toks[i + k][0], pool[j + k])):
-                    k += 1
-                if k > best:
-                    best = k
-            if best >= self.ECHO_RUN:
-                for k in range(best):
-                    keep[i + k] = False
-                i += best
-            else:
+            if keep[i]:
                 i += 1
+                continue
+            j = i
+            while j < n and not keep[j]:
+                j += 1
+            if j - i < self.ECHO_RUN:     # cok kisa, yanki sayma
+                for k in range(i, j):
+                    keep[k] = True
+            i = j
         if all(keep):
             return text
         # A single word left standing BETWEEN two echoed runs is an echo too:
@@ -1751,7 +1791,7 @@ class ClaudeVoice(rumps.App):
                 run = []
         if run:
             parts.append(text[run[0][0]:run[-1][1]])
-        return " ".join(p.strip() for p in parts if p.strip()).strip()
+        return " ".join(part.strip() for part in parts if part.strip()).strip()
 
     def _is_own_voice(self, text: str) -> bool:
         """Is the heard text the one being read right now (speaker echo)?
