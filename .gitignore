@@ -8,7 +8,7 @@ Mahmut.app/
 .launcher.c
 assets/Mahmut.iconset/
 
-# KULLANICI VERISI — repoya girmemeli
+# KULLANICI VERISI: repoya girmemeli
 config.json
 .state.json
 .muted.json

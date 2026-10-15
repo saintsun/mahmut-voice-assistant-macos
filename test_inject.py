@@ -1,4 +1,4 @@
-"""Claude.app'e yazma testi — GUVENLI: Enter'a BASMAZ.
+"""Claude.app'e yazma testi. GUVENLI: Enter'a BASMAZ.
 
 Metin Claude'un yazma alaninda belirir, gonderilmez. Gorup silersin.
 
@@ -12,7 +12,7 @@ import time
 from claudevoice.config import Config
 from claudevoice.inject import Injector, ax_trusted
 
-TEXT = "Mahmut testi — bu mesaj gonderilmedi, silebilirsin."
+TEXT = "Mahmut testi, bu mesaj gonderilmedi, silebilirsin."
 
 
 def main() -> int:

@@ -40,7 +40,7 @@ STAMP="$APP/Contents/Resources/build.fingerprint"
 
 if [ $FORCE -eq 0 ] && [ -x "$APP/Contents/MacOS/Mahmut" ] \
    && [ "$(cat "$STAMP" 2>/dev/null)" = "$FINGERPRINT" ]; then
-  echo "bundle zaten guncel — dokunulmadi (Erisilebilirlik izni korundu)"
+  echo "bundle zaten guncel, dokunulmadi (Erisilebilirlik izni korundu)"
   echo "hazir: $APP"
   exit 0
 fi
@@ -132,7 +132,7 @@ case "$SIG" in
   *"Signature=adhoc"*)
     echo "imza dogrulandi: ad-hoc (kimlik kullanilmadi)" ;;
   *)
-    echo "UYARI: imza ad-hoc DEGIL — kaldiriliyor (kimlik kullanilmamali)"
+    echo "UYARI: imza ad-hoc DEGIL, kaldiriliyor (kimlik kullanilmamali)"
     codesign --remove-signature "$APP" >/dev/null 2>&1 || true ;;
 esac
 
