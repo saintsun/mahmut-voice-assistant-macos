@@ -449,6 +449,7 @@ edit code freely.
 ```bash
 ./test_devices.py   # device selection rules (no audio hardware needed)
 ./test_sources.py   # target, muting and routine detection
+./test_phrases.py   # command matching: what fires and what must not
 ./selftest.py       # permissions, microphone, model, voice, live sessions
 ./check_panel.sh    # panel JavaScript syntax
 ./verify.sh         # restarts the app and exercises the typing path
