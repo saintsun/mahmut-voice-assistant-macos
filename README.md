@@ -292,6 +292,27 @@ brew uninstall portaudio ffmpeg
 
 ---
 
+## Buy Mahmut something
+
+The project is free and stays free. If it earns its keep, you can feed
+Mahmut.
+
+[![Payoneer](https://img.shields.io/badge/Payoneer-Buy%20Mahmut%20something-FF4800?style=for-the-badge&logo=payoneer&logoColor=white&labelColor=0D1117)](https://link.payoneer.com/Token?t=B8694A2C126D470EAE34E7CC7A0817D9&src=pl)
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor-39FF14?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=0D1117)](https://github.com/sponsors/saintsun)
+
+| | |
+|---|---|
+| $5 | A Turkish coffee |
+| $10 | Döner wrap |
+| $25 | İskender |
+| $50 | Hookah session |
+| $100 | A night at the pavyon |
+
+On Payoneer you type the amount yourself and pay by card. The GitHub
+Sponsors button goes live once the profile is approved.
+
+---
+
 ## For developers
 
 Everything below is technical: how it works, what was measured, and the traps

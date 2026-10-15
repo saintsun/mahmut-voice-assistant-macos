@@ -285,6 +285,27 @@ brew uninstall portaudio ffmpeg
 
 ---
 
+## Mahmut'a ısmarla
+
+Proje ücretsiz ve öyle kalacak. Faydalı bulduysan Mahmut'un karnını
+doyurabilirsin.
+
+[![Payoneer](https://img.shields.io/badge/Payoneer-Mahmut'a%20%C4%B1smarla-FF4800?style=for-the-badge&logo=payoneer&logoColor=white&labelColor=0D1117)](https://link.payoneer.com/Token?t=B8694A2C126D470EAE34E7CC7A0817D9&src=pl)
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor%20ol-39FF14?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=0D1117)](https://github.com/sponsors/saintsun)
+
+| | |
+|---|---|
+| $5 | Bir türk kahvesi |
+| $10 | Döner ekmek |
+| $25 | İskender |
+| $50 | Nargile |
+| $100 | Pavyon |
+
+Payoneer'da tutarı sen yazıyorsun, kart ile ödeniyor. GitHub Sponsors
+butonu profil onaylandığında devreye girer.
+
+---
+
 ## Geliştiriciler için
 
 Bu bölümden sonrası teknik: nasıl çalıştığı, ölçülen davranışlar ve
