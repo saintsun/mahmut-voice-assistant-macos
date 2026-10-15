@@ -48,6 +48,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   marker was looked for in the first 256 KB of the transcript only, which in a
   long conversation is far before the scheduled run. Both ends of the file are
   scanned now, so recurring check-ins inside an old conversation are caught.
+- Selecting a conversation by name went through the Claude list whatever the
+  target was, so with Codex selected no thread could be reached by name. It
+  now searches the selected application's list, exact name first.
+- Favourites were always saved under the Claude key. Editing the list while
+  Codex was selected overwrote the Claude list, and the Codex list stayed as
+  it was. Each target now reads and writes its own key.
+- Fuzzy matching for Codex had no score floor, so a name that matched nothing
+  still switched to whatever ranked first. It uses the same 0.62 threshold as
+  Claude sessions now.
+
+### Tests
+
+- `test_sources.py`: 18 cases over targets, muting and routine detection,
+  including the two transcripts that caused the bugs above. No app window, no
+  audio hardware.
 
 ## [1.0.0] - 2026-10-14
 

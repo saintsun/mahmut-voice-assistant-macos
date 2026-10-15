@@ -1658,8 +1658,14 @@ class ClaudeVoice(rumps.App):
             voices.append({"name": name, "lang": m.group(2)})
         return voices
 
+    def _fav_key(self) -> str:
+        """Each target keeps its own list, under its own key."""
+        return "favorites_codex" if self.is_codex() else "favorites"
+
     def _save_favorites(self) -> None:
-        self.cfg.set("ui", "favorites",
+        # The key follows the target: saving while Codex was selected used to
+        # overwrite the Claude list, which is read from the other key.
+        self.cfg.set("ui", self._fav_key(),
                      [{"name": f["name"], "id": f.get("id")}
                       for f in self.favorites])
         self._compile_favorites()
@@ -2064,7 +2070,7 @@ class ClaudeVoice(rumps.App):
         it is stored as well and the name updates itself.
         """
         out: list[dict] = []
-        key = "favorites_codex" if self.is_codex() else "favorites"
+        key = self._fav_key()
         stored = self.cfg.get("ui", key, []) or []
         if not stored and self.is_codex():
             stored = self.src_default_favorites()
@@ -2452,7 +2458,13 @@ class ClaudeVoice(rumps.App):
             self._set_status(
                 f"hangi konuşma? örn: 'Kunaz Geliştirme seç {self.call_name}'")
             return
-        session, score, ranked = self.registry.find(spoken_name)
+        # Through the source layer: with Codex selected this used to search
+        # the Claude list, so selecting a Codex thread by name never worked.
+        rows = self.src_live(force=True)
+        session = self.src_find_exact(spoken_name, rows)
+        score, ranked = 1.0, []
+        if session is None:
+            session, score, ranked = self.src_match(spoken_name, rows)
         if session is None:
             sid = self.titles.find(spoken_name)       # kapali olabilir
             if sid:
