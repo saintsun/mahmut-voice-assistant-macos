@@ -453,6 +453,67 @@ box-shadow:0 0 26px rgba(255,204,69,.7)}
 .hlbg{animation:pulseBg 1.1s ease-in-out infinite}
 .cap{margin-top:10px;padding:10px;border-radius:9px;
 background:rgba(0,255,163,.07);border:1px solid rgba(0,255,163,.35)}
+
+/* ---- Light theme -------------------------------------------------------
+   The dark panel stays the default. This repaints the surfaces and darkens
+   the neon accents just enough to stay readable on white; the layout and
+   every size is untouched, so only colours change. */
+:root[data-theme="light"]{
+  --bg:#f5f8fd; --bg2:#e8eef8;
+  --card:rgba(255,255,255,.88); --line:rgba(24,46,92,.16);
+  --fg:#0f1826; --dim:#5b6a84;
+  --neon:#0089ad; --neon2:#7a2fd0; --ok:#0a8f5c; --warn:#9a6a00; --err:#c42a46;
+  --glow:0 0 15px rgba(0,137,173,.22);
+}
+:root[data-theme="light"] body{
+  background:
+    radial-gradient(900px 500px at 12% -8%, rgba(0,137,173,.14), transparent 60%),
+    radial-gradient(760px 460px at 92% 4%, rgba(122,47,208,.10), transparent 62%),
+    linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);
+}
+:root[data-theme="light"] ::-webkit-scrollbar-thumb{background:rgba(24,46,92,.22)}
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover{background:rgba(0,137,173,.45)}
+:root[data-theme="light"] .tabs button:hover{background:rgba(15,24,38,.06)}
+:root[data-theme="light"] .tabs button.on{
+  background:#10233a;color:#f3f8ff;box-shadow:0 0 16px rgba(16,35,58,.28)}
+:root[data-theme="light"] .navsel,
+:root[data-theme="light"] .chip,
+:root[data-theme="light"] button{background:rgba(15,24,38,.045)}
+:root[data-theme="light"] button:hover{
+  background:rgba(0,137,173,.12);color:#06212b;border-color:rgba(0,137,173,.5)}
+:root[data-theme="light"] button:disabled{background:rgba(15,24,38,.03)}
+:root[data-theme="light"] .chip.bar{background:rgba(15,24,38,.1)}
+:root[data-theme="light"] .buf,
+:root[data-theme="light"] .hist,
+:root[data-theme="light"] .set input,
+:root[data-theme="light"] .set select,
+:root[data-theme="light"] .tstres,
+:root[data-theme="light"] .tstrow input,
+:root[data-theme="light"] .addrow input,
+:root[data-theme="light"] .fav input.ed,
+:root[data-theme="light"] .vptrig,
+:root[data-theme="light"] .vppop input,
+:root[data-theme="light"] .ctab .cs input{background:rgba(255,255,255,.9)}
+:root[data-theme="light"] .hrow:hover{background:rgba(0,137,173,.09)}
+:root[data-theme="light"] .sl{background:rgba(15,24,38,.12)}
+:root[data-theme="light"] .mbox{background:#fbfdff;border-color:rgba(0,137,173,.35)}
+:root[data-theme="light"] .vppop{background:#fbfdff}
+:root[data-theme="light"] .vpi.on{background:rgba(0,137,173,.16);color:#06212b}
+:root[data-theme="light"] .vol input[type=range]::-webkit-slider-thumb{
+  background:#10233a;box-shadow:0 0 10px rgba(16,35,58,.4)}
+/* toasts: light surface, the colour is carried by the border and the text */
+:root[data-theme="light"] .toast{background:rgba(255,255,255,.95)}
+:root[data-theme="light"] .toast.err{color:#a3102f;background:rgba(255,236,240,.96)}
+:root[data-theme="light"] .toast.ok{color:#0a7a3c;background:rgba(233,255,238,.96)}
+:root[data-theme="light"] .toast.warn{color:#7a5a00;background:rgba(255,251,225,.96)}
+:root[data-theme="light"] .toast.info{color:#06566b;background:rgba(231,250,255,.96)}
+/* the name is gradient text, which needs darker stops on white */
+:root[data-theme="light"] .brand .nm,
+:root[data-theme="light"] h1 .nm{
+  background:linear-gradient(92deg,#046a86,#5c1fa8);
+  -webkit-background-clip:text;background-clip:text;
+  filter:drop-shadow(0 0 6px rgba(0,137,173,.22))}
+:root[data-theme="light"] .navst{color:var(--dim)}
 </style></head><body>
 <nav class="nav">
   <div class="brand"><span class="dot" id="dot"></span>
@@ -466,6 +527,8 @@ background:rgba(0,255,163,.07);border:1px solid rgba(0,255,163,.35)}
   <button class="navpause" id="navPause" onclick="go('pause')"
     data-i18n-title="tt_pause">&#9208;</button>
   <span class="navst" id="ttl">bağlanıyor…</span>
+  <button class="navpause" id="navTheme" onclick="toggleTheme()"
+    data-i18n-title="tt_theme">&#9790;</button>
   <select class="navsel" id="navLoc" data-i18n-title="tt_loc" onchange="setLoc(this.value)">
     <option value="tr">Türkçe</option><option value="en">English</option>
   </select>
@@ -776,7 +839,7 @@ const I18N={
   tt_loadreset:"Seçili komut setini yükler; aynısını seçersen varsayılana döner",
   tt_try:"Yazdığın cümlenin hangi komuta gittiğini gösterir",
   tt_addcmd:"Bu cümleyi seçtiğin komutun kalıbı olarak ekler",
-  tt_loc:"Arayüz dili",tt_voice:"Claude’un cevaplarını okuyan ses",
+  tt_theme:"Açık ve koyu tema arasında geçiş yapar, seçim bu tarayıcıda kalır",tt_loc:"Arayüz dili",tt_voice:"Claude’un cevaplarını okuyan ses",
   tt_lang:"Konuştuğun dil. Whisper bu dilde yazıya döker",
   tt_name:"Komutların başına/sonuna söylediğin çağrı adı",
   tt_rename:"Adı değiştir ya da açık bir konuşmaya bağla",
@@ -835,7 +898,7 @@ const I18N={
   tt_loadreset:"Loads the selected command set; pick the same one to reset",
   tt_try:"Shows which command your sentence would hit",
   tt_addcmd:"Adds this sentence as a pattern of the chosen command",
-  tt_loc:"Interface language",tt_voice:"Voice that reads Claude’s replies",
+  tt_theme:"Switches between light and dark, remembered in this browser",tt_loc:"Interface language",tt_voice:"Voice that reads Claude’s replies",
   tt_lang:"The language you speak. Whisper transcribes in it",
   tt_name:"The wake name you say with every command",
   tt_rename:"Rename or link to an open conversation",
@@ -923,6 +986,23 @@ function setLoc(l){ LOC=l;
   const ve=document.getElementById("stVoice"); if(ve) ve.dataset.n=""; try{localStorage.setItem("vp_loc",l);}catch(e){}
   applyLoc(); tick(); }
 try{ const sl=localStorage.getItem("vp_loc"); if(sl) LOC=sl; }catch(e){}
+// --- theme: dark by default; the choice lives in this browser only ------
+let THEME="dark";
+try{ const st=localStorage.getItem("vp_theme"); if(st) THEME=st; }catch(e){}
+function applyTheme(){
+  const root=document.documentElement;
+  if(THEME==="light") root.setAttribute("data-theme","light");
+  else root.removeAttribute("data-theme");
+  const b=document.getElementById("navTheme");
+  if(b){ b.innerHTML = THEME==="light" ? "&#9728;" : "&#9790;";   // gunes / ay
+         b.classList.toggle("on", THEME==="light"); }
+}
+function toggleTheme(){
+  THEME = THEME==="light" ? "dark" : "light";
+  try{ localStorage.setItem("vp_theme", THEME); }catch(e){}
+  applyTheme();
+}
+applyTheme();
 let BOOT=null, SETTOUCH=0, COPEN=null, CDET=null, PEDIT=null, CAP={key:null,text:""};
 async function cmdOpen(k){
   if(COPEN!==k) MMSG="";          // clear the old result when a different command is opened

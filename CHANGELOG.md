@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **A light theme in the panel.** The moon button next to the language picker
+  switches between light and dark; the choice is kept in that browser, so it
+  survives reloads without touching the app's settings. Dark stays the
+  default. Only colours change: the surfaces are repainted and the neon
+  accents are darkened enough to stay readable on white, while every size and
+  position is untouched.
+
 ### Fixed
 
 - **A conversation was sent to Claude without the send phrase.** "over" is a

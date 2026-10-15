@@ -189,6 +189,9 @@ Menu bar icon → **Panel**, or open `http://127.0.0.1:8765` in a browser.
 did. When a command does not land you will see why, and the **+** next to a row
 adds that misrecognition to the command.
 
+The moon button next to the language picker switches to the **light theme**;
+the choice is remembered in that browser.
+
 ---
 
 ## Claude Code or Codex?
