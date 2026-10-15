@@ -180,6 +180,9 @@ Menü çubuğu simgesi → **Panel**, ya da tarayıcıda `http://127.0.0.1:8765`
 gösterir. Bir komut tutmadıysa orada görürsün; satırın yanındaki **+** ile o
 yanlış duymayı komuta ekleyebilirsin.
 
+Dil seçicinin yanındaki ay düğmesi **açık temaya** geçirir; seçim o tarayıcıda
+saklanır.
+
 ---
 
 ## Claude Code mu, Codex mi?
