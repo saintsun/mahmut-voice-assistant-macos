@@ -31,7 +31,35 @@ press Enter:
 curl -fsSL https://raw.githubusercontent.com/saintsun/mahmut-voice-assistant-macos/main/install.sh | bash
 ```
 
-That is all. The command downloads and installs everything it needs:
+That is all. It takes 10–15 minutes, mostly downloading. Answer **E** (yes)
+if it asks, and the app starts by itself at the end.
+
+---
+
+## Buy Mahmut something
+
+The project is free and stays free. If it earns its keep, you can feed
+Mahmut.
+
+[![Payoneer](https://img.shields.io/badge/Payoneer-Buy%20Mahmut%20something-FF4800?style=for-the-badge&logo=payoneer&logoColor=white&labelColor=0D1117)](https://link.payoneer.com/Token?t=B8694A2C126D470EAE34E7CC7A0817D9&src=pl)
+[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor-39FF14?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=0D1117)](https://github.com/sponsors/saintsun)
+
+| | |
+|---|---|
+| $5 | A Turkish coffee |
+| $10 | Döner wrap |
+| $25 | İskender |
+| $50 | Hookah session |
+| $100 | A night at the pavyon |
+
+On Payoneer you type the amount yourself and pay by card. The GitHub
+Sponsors button goes live once the profile is approved.
+
+---
+
+## Install: the details
+
+The command downloads and installs everything it needs:
 
 | | |
 |---|---|
@@ -39,8 +67,6 @@ That is all. The command downloads and installs everything it needs:
 | Homebrew, PortAudio, FFmpeg, Python | installed if missing |
 | Speech recognition model | 1.5 GB, the longest step |
 | The app | built and launched |
-
-It takes 10–15 minutes, mostly downloading. Answer **E** (yes) if it asks.
 
 **Requirements:** an Apple Silicon Mac (M1/M2/M3/M4) and macOS 13 or newer,
 plus the Claude Code or Codex desktop app.
@@ -88,27 +114,6 @@ It reads the reply aloud. To stop the reading say **"Mahmut quiet"** or press
 > English and Turkish command sets both ship with the app. Pick yours under
 > **Settings → Command set**, and change the name it answers to under
 > **Settings → Wake name**.
-
----
-
-## Buy Mahmut something
-
-The project is free and stays free. If it earns its keep, you can feed
-Mahmut.
-
-[![Payoneer](https://img.shields.io/badge/Payoneer-Buy%20Mahmut%20something-FF4800?style=for-the-badge&logo=payoneer&logoColor=white&labelColor=0D1117)](https://link.payoneer.com/Token?t=B8694A2C126D470EAE34E7CC7A0817D9&src=pl)
-[![GitHub Sponsors](https://img.shields.io/badge/GitHub-Sponsor-39FF14?style=for-the-badge&logo=githubsponsors&logoColor=white&labelColor=0D1117)](https://github.com/sponsors/saintsun)
-
-| | |
-|---|---|
-| $5 | A Turkish coffee |
-| $10 | Döner wrap |
-| $25 | İskender |
-| $50 | Hookah session |
-| $100 | A night at the pavyon |
-
-On Payoneer you type the amount yourself and pay by card. The GitHub
-Sponsors button goes live once the profile is approved.
 
 ---
 
