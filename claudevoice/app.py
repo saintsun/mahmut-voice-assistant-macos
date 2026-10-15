@@ -1688,6 +1688,71 @@ class ClaudeVoice(rumps.App):
         rumps.quit_application()
 
     # ------------------------------------------------------------ TTS bridge
+    # A run this long counted as an echo; shorter overlaps can easily be the
+    # user's own words ("kunaz reklam" appears in the list we read out).
+    ECHO_RUN = 4
+
+    def _strip_own_voice(self, text: str) -> str:
+        """Removes the part of the heard text that we are reading out loud.
+
+        Over speakers the microphone hears the reading AND the user. The
+        transcript then holds both: the whole list we just read followed by
+        the one sentence the user actually said. Dropping the line as an echo
+        loses that sentence, keeping it sends the list back to Claude, so the
+        echoed runs are cut out and whatever is left is handled normally.
+
+        A run of at least ECHO_RUN words that appears in the same order in the
+        text being read counts as an echo. Word comparison is fuzzy, because
+        the microphone hears our own voice imperfectly as well.
+        """
+        spoken = self.speaker.recent_text()
+        if not spoken:
+            return text
+        toks = tokenize(text)
+        pool = [w for w, _, _ in tokenize(spoken)]
+        if not toks or not pool:
+            return text
+        if self._is_own_voice(text):      # tamami yanki
+            return ""
+        n, keep, i = len(toks), [True] * len(toks), 0
+        while i < n:
+            best = 0
+            for j in range(len(pool)):
+                k = 0
+                while (i + k < n and j + k < len(pool)
+                       and word_eq(toks[i + k][0], pool[j + k])):
+                    k += 1
+                if k > best:
+                    best = k
+            if best >= self.ECHO_RUN:
+                for k in range(best):
+                    keep[i + k] = False
+                i += best
+            else:
+                i += 1
+        if all(keep):
+            return text
+        # A single word left standing BETWEEN two echoed runs is an echo too:
+        # the microphone mishears a word of our own voice now and then ("pam"
+        # heard as "pan"), and it would otherwise survive as a stray word.
+        for i in range(1, n - 1):
+            if keep[i] and not keep[i - 1] and not keep[i + 1]:
+                keep[i] = False
+        if all(keep):
+            return text
+        # The kept words are glued back together in runs, so punctuation
+        # inside a surviving sentence is not lost.
+        parts, run = [], []
+        for (_, start, end), ok in zip(toks, keep):
+            if ok:
+                run.append((start, end))
+            elif run:
+                parts.append(text[run[0][0]:run[-1][1]])
+                run = []
+        if run:
+            parts.append(text[run[0][0]:run[-1][1]])
+        return " ".join(p.strip() for p in parts if p.strip()).strip()
+
     def _is_own_voice(self, text: str) -> bool:
         """Is the heard text the one being read right now (speaker echo)?
 
@@ -1844,10 +1909,18 @@ class ClaudeVoice(rumps.App):
             text = self.glossary.correct(text)
             self.last_transcript = text          # hata ayiklama icin
             self._last_action = ""
-            self._handle_text(text)
+            # Speaker echo first: what the microphone heard of our own
+            # reading is cut out, and only the rest is treated as speech.
+            clean = self._strip_own_voice(text)
+            if clean != text:
+                print(f"[eko] ayiklandi: {text!r} -> {clean!r}")
+            if clean:
+                self._handle_text(clean)
+            else:
+                self._last_action = "🔇 kendi sesi"
             self.history.appendleft({
                 "t": time.strftime("%H:%M:%S"),
-                "text": text,
+                "text": clean or text,
                 "result": self._last_action,
                 "fired": bool(self._last_action
                               and not self._last_action.startswith(("·", "…"))),
