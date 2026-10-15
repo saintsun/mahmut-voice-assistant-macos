@@ -1,4 +1,11 @@
 # The Sponsor button on the repository page. It only shows up once the
 # GitHub Sponsors profile is approved and public; until then this file sits
 # here unused and breaks nothing.
+#
+# TODO (Payoneer): the payment link goes under `custom:` when it is ready.
+# Payoneer links carry an EXPIRY DATE: the one created on 2026-10-15 runs out
+# on 2027-01-15. On that day the link stops working silently, so renew it in
+# Payoneer (Get Paid > Payment Links) and update the URL here.
+#
+#   custom: ["https://...payoneer link..."]
 github: [saintsun]
