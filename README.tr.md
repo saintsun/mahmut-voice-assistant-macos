@@ -429,6 +429,7 @@ kadar değiştirebilirsin.
 
 ```bash
 ./test_devices.py   # cihaz seçimi kuralları (ses donanımı gerekmez)
+./test_sources.py   # hedef, susturma ve rutin tespiti
 ./selftest.py       # izinler, mikrofon, model, ses, canlı oturumlar
 ./check_panel.sh    # panel JavaScript sözdizimi
 ./verify.sh         # uygulamayı yeniden başlatır ve yazma yolunu dener

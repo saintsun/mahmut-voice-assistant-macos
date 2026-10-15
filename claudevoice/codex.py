@@ -208,14 +208,20 @@ def find_exact(spoken: str, items: list[Thread] | None = None) -> Thread | None:
     return None
 
 
-def match(spoken: str, items: list[Thread] | None = None):
-    """Best fuzzy match: (thread, score, all_scores) - mirrors sessions.match."""
+def match(spoken: str, items: list[Thread] | None = None,
+          threshold: float = 0.62):
+    """Best fuzzy match: (thread, score, all_scores) - mirrors sessions.match.
+
+    The threshold is the same as the one for Claude sessions: without it the
+    best row always won, so a name that matches nothing switched to whatever
+    happened to rank first.
+    """
     from .sessions import score as _score
     rows = items if items is not None else live_threads()
     scored = [(t, _score(spoken, t.name)) for t in rows]
     scored.sort(key=lambda x: x[1], reverse=True)
-    if not scored:
-        return None, 0.0, []
+    if not scored or scored[0][1] < threshold:
+        return None, (scored[0][1] if scored else 0.0), scored
     return scored[0][0], scored[0][1], scored
 
 
