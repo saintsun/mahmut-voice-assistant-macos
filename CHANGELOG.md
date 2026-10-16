@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **"Microphone off" did not release the microphone.** Turning it off only
+  cleared a flag: the app ignored the audio, but the PortAudio stream stayed
+  open, so macOS kept the orange recording dot lit and the device stayed busy
+  for every other app. Off now closes the stream, and the watchdog no longer
+  reopens it while the app is off. Turning it back on opens it again.
 - **A conversation was sent to Claude without the send phrase.** "over" is a
   send phrase on its own, and fuzzy matching allows one letter of difference
   from four letters up, so the very common Turkish word "ver" matched it: any
