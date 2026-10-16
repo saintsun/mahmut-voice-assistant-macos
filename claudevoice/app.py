@@ -468,14 +468,22 @@ class ClaudeVoice(rumps.App):
                                             name="claudevoice-mic-check")
         self._mic_worker.start()
 
+    # A rescan tears PortAudio down and back up, which re-enumerates EVERY
+    # device. That wakes Continuity devices nobody asked for: the iPhone
+    # microphone kept being pulled in, and the Mac warned that it had been
+    # disconnected afterwards. So a rescan that fixes nothing backs off, and
+    # the idle scan is rare.
+    RESCAN_MIN, RESCAN_MAX, IDLE_SCAN = 5.0, 300.0, 300.0
+
     def _check_mic(self) -> None:
         """Catches a lost device and rebuilds the stream.
 
         Two triggers:
           * the mic is open but has been EXACTLY silent for 5 s -> the device
             is gone (headset unplugged); PortAudio's list is refreshed and the
-            stream reconnects
-          * roughly every 45 s while idle -> to notice a newly plugged device
+            stream reconnects. If that does not bring the sound back, the next
+            attempt waits three times as long, up to five minutes.
+          * every five minutes while idle -> to notice a newly plugged device
         """
         if getattr(self, "_mic_released", False):
             return                       # okuma suresince bilerek kapali
@@ -487,18 +495,28 @@ class ClaudeVoice(rumps.App):
             busy = self.speaker.busy or self.mic.seg.speaking
             with self.lock:
                 buffering = bool(self.buffer)
-            self._since_scan = getattr(self, "_since_scan", 0) + 1
+            now = time.monotonic()
+            wait = getattr(self, "_rescan_wait", self.RESCAN_MIN)
 
             if silent > 5.0:
+                if now - getattr(self, "_rescan_at", 0.0) < wait:
+                    return               # geri adim suresi dolmadi
+                self._rescan_at = now
+                self._rescan_wait = min(wait * 3, self.RESCAN_MAX)
+                self._idle_scan_at = now
                 name = self.mic.refresh_device(rescan=True)
-                self._since_scan = 0
                 self._set_status(f"mikrofon yeniden bağlandı: "
                                  f"{name or self.mic.device_name}")
                 print(f"[audio] sessizlik algılandı, yeniden bağlanıldı: "
-                      f"{self.mic.device_name!r}")
+                      f"{self.mic.device_name!r} (sonraki deneme "
+                      f"{self._rescan_wait:.0f} sn sonra)")
                 return
-            if self._since_scan >= 11 and not busy and not buffering:
-                self._since_scan = 0
+            # Sound is arriving: the device is fine, start over from the
+            # shortest wait.
+            self._rescan_wait = self.RESCAN_MIN
+            if (now - getattr(self, "_idle_scan_at", 0.0) >= self.IDLE_SCAN
+                    and not busy and not buffering):
+                self._idle_scan_at = now
                 changed = self.mic.refresh_device(rescan=True)
                 if changed:
                     self._set_status(f"mikrofon değişti: {changed}")

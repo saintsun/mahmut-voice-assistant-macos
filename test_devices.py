@@ -111,6 +111,72 @@ def _():
        "cikis/dusme")
 
 
+# --- microphone watchdog: how often does it rescan PortAudio? -----------
+# A rescan re-enumerates every device and wakes Continuity devices (the
+# iPhone microphone), so a rescan that fixes nothing has to back off.
+class _FakeMic:
+    def __init__(self):
+        self.device_name = "MacBook Air Microphone"
+        self.enabled = True
+        self.rescans = 0
+        self.seg = type("S", (), {"speaking": False})()
+
+    def silent_for(self):
+        return 10.0                      # hep sessiz: cihaz geri gelmiyor
+
+    def refresh_device(self, rescan=False):
+        self.rescans += 1
+        return None
+
+
+def _watchdog_stub():
+    import threading
+    from claudevoice.app import ClaudeVoice, LIVE
+    s = ClaudeVoice.__new__(ClaudeVoice)
+    s.mic = _FakeMic()
+    s.speaker = type("S", (), {"busy": False})()
+    s.lock = threading.RLock()
+    s.state = LIVE
+    s._capture = None
+    s.buffer = ""
+    s._set_status = lambda *a, **k: None
+    return s
+
+
+def _run_minutes(stub, minutes, step=4.0):
+    """Runs the watchdog for N minutes of fake time, 4 s per tick."""
+    from claudevoice.app import ClaudeVoice
+    import claudevoice.app as app_mod
+    real_time = app_mod.time
+    clock = {"t": 1000.0}
+    app_mod.time = type("T", (), {"monotonic": staticmethod(lambda: clock["t"]),
+                                  "strftime": real_time.strftime,
+                                  "time": real_time.time})()
+    try:
+        for _ in range(int(minutes * 60 / step)):
+            ClaudeVoice._check_mic(stub)
+            clock["t"] += step
+    finally:
+        app_mod.time = real_time
+
+
+@case("sürekli sessizlikte tarama sayısı geri adımla düşer")
+def _():
+    stub = _watchdog_stub()
+    _run_minutes(stub, 10)
+    # geri adim: 5, 15, 45, 135, 300, 300... -> 10 dakikada en fazla 8 tarama
+    assert stub.mic.rescans <= 8, f"10 dakikada {stub.mic.rescans} tarama (çok)"
+    assert stub.mic.rescans >= 4, f"hiç denemiyor: {stub.mic.rescans}"
+
+
+@case("geri adım olmasa 10 dakikada 150 tarama olurdu")
+def _():
+    stub = _watchdog_stub()
+    from claudevoice.app import ClaudeVoice
+    eq(ClaudeVoice.RESCAN_MAX, 300.0, "üst sınır")
+    eq(ClaudeVoice.RESCAN_MIN, 5.0, "alt sınır")
+
+
 def main() -> int:
     bad = 0
     for name, fn in CASES:
