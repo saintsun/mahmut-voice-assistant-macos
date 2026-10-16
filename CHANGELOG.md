@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **The iPhone microphone kept being pulled in.** Rebuilding the audio
+  stream tears PortAudio down and back up, which re-enumerates every device
+  and wakes Continuity devices nobody asked for; the Mac then warned that the
+  phone microphone had been disconnected. The watchdog used to do that every
+  four seconds while the microphone stayed silent, and once every 45 seconds
+  while idle. A rescan that fixes nothing now backs off (5 s, 15 s, 45 s and
+  so on up to five minutes) and the idle scan runs every five minutes: 15
+  rescans an hour instead of 900.
 - **"Microphone off" did not release the microphone.** Turning it off only
   cleared a flag: the app ignored the audio, but the PortAudio stream stayed
   open, so macOS kept the orange recording dot lit and the device stayed busy
