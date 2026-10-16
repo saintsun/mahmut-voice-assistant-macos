@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- The panel now carries the app icon: the browser tab, a bookmark and a home
+  screen shortcut all show the robot instead of a blank page icon. It is
+  served from the project's own icon set at `/favicon.png`.
 - **A light theme in the panel.** The moon button next to the language picker
   switches between light and dark; the choice is kept in that browser, so it
   survives reloads without touching the app's settings. Dark stays the

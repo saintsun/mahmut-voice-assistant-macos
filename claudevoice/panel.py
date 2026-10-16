@@ -7,13 +7,16 @@ shortcut / switch).
 from __future__ import annotations
 
 import json
+import os
 import socket
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 PAGE = """<!doctype html><html lang="tr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mahmut: Voice Assistant</title><style>
+<title>Mahmut: Voice Assistant</title>
+<link rel="icon" type="image/png" sizes="128x128" href="/favicon.png">
+<link rel="apple-touch-icon" href="/favicon.png"><style>
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap");
 :root{
   --bg:#070910; --bg2:#0b0f1a;
@@ -1521,7 +1524,35 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    # The app icon, so the browser tab and a bookmark carry it too. It is
+    # read from the project's icon set and kept in memory after the first
+    # request.
+    ICON_PATH = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "assets", "Mahmut.iconset", "icon_128x128.png")
+    _icon_cache: bytes | None = None
+
+    def _send_bytes(self, data: bytes, ctype: str, cache: str) -> None:
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", cache)
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_GET(self):
+        if self.path.startswith("/favicon"):
+            cls = type(self)
+            if cls._icon_cache is None:
+                try:
+                    with open(self.ICON_PATH, "rb") as fh:
+                        cls._icon_cache = fh.read()
+                except OSError:
+                    cls._icon_cache = b""
+            if not cls._icon_cache:
+                return self._send(404, "", "text/plain; charset=utf-8")
+            return self._send_bytes(cls._icon_cache, "image/png",
+                                    "public, max-age=86400")
         if self.path.startswith("/api/state"):
             try:
                 body = json.dumps(self.app.panel_state(), ensure_ascii=False)
