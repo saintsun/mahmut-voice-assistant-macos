@@ -479,6 +479,9 @@ class ClaudeVoice(rumps.App):
         """
         if getattr(self, "_mic_released", False):
             return                       # okuma suresince bilerek kapali
+        with self.lock:
+            if self.state == OFF and not self._capture:
+                return                   # kapaliyken cihazi geri acma
         try:
             silent = self.mic.silent_for()
             busy = self.speaker.busy or self.mic.seg.speaking
@@ -604,6 +607,7 @@ class ClaudeVoice(rumps.App):
             return
         mode = self.cfg.get("ui", "start_mode", "sleep")
         if mode == "off":
+            self._mic_off()              # acilista kapali: cihazi tutma
             self._set_state(OFF)
             self._set_status("kapalı, menüden aç")
             return
@@ -625,6 +629,19 @@ class ClaudeVoice(rumps.App):
     def _set_state(self, state: str) -> None:
         with self.lock:
             self.state = state
+
+    def _mic_off(self) -> None:
+        """Turns the microphone off and RELEASES the device.
+
+        Clearing the enabled flag only made the app ignore the audio: the
+        PortAudio stream stayed open, macOS kept the orange recording dot lit
+        and the microphone stayed busy for everything else. Off has to mean
+        the stream is closed.
+        """
+        self.mic.set_enabled(False)
+        self.mic.stop()
+        self._mic_released = False       # bu birakma "okuma icin" degil
+        print("[audio] mikrofon kapatildi, cihaz birakildi")
 
     def _notify(self, title: str, text: str) -> None:
         # All macOS notifications can be turned off from one setting.
@@ -654,7 +671,7 @@ class ClaudeVoice(rumps.App):
             self.mic.set_enabled(True)
             self._set_status(f'dinliyorum, bitince "tamam {self.call_name}" de')
         else:
-            self.mic.set_enabled(False)
+            self._mic_off()
             self.explicit_listen = False
             self._set_state(OFF)
             with self.lock:
@@ -798,7 +815,7 @@ class ClaudeVoice(rumps.App):
         elif action == "stop":
             self._go_sleep()
         elif action == "off":
-            self.mic.set_enabled(False)
+            self._mic_off()
             self.explicit_listen = False
             self._set_state(OFF)
             with self.lock:
