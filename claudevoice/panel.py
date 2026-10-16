@@ -64,6 +64,8 @@ box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .brand{display:flex;align-items:center;gap:10px;flex:0 0 auto}
 .brand .ver{font-size:10.5px;color:var(--dim);font-family:"JetBrains Mono",monospace;
   padding:2px 7px;border:1px solid var(--line);border-radius:999px}
+.brand{cursor:pointer;transition:opacity .15s}
+.brand:hover{opacity:.78}
 .brand .nm{font-weight:700;font-size:14px;letter-spacing:.13em;
 text-transform:uppercase;
 background:linear-gradient(92deg,var(--neon),var(--neon2));
@@ -519,7 +521,8 @@ background:rgba(0,255,163,.07);border:1px solid rgba(0,255,163,.35)}
 :root[data-theme="light"] .navst{color:var(--dim)}
 </style></head><body>
 <nav class="nav">
-  <div class="brand"><span class="dot" id="dot"></span>
+  <div class="brand" onclick="page('kontrol')" data-i18n-title="tt_home">
+    <span class="dot" id="dot"></span>
     <span class="nm">Mahmut: Voice Assistant</span>
     <span class="ver" id="ver"></span></div>
   <div class="tabs">
@@ -842,7 +845,7 @@ const I18N={
   tt_loadreset:"Seçili komut setini yükler; aynısını seçersen varsayılana döner",
   tt_try:"Yazdığın cümlenin hangi komuta gittiğini gösterir",
   tt_addcmd:"Bu cümleyi seçtiğin komutun kalıbı olarak ekler",
-  tt_theme:"Açık ve koyu tema arasında geçiş yapar, seçim bu tarayıcıda kalır",tt_loc:"Arayüz dili",tt_voice:"Claude’un cevaplarını okuyan ses",
+  tt_home:"Kontrol sayfasına döner",tt_theme:"Açık ve koyu tema arasında geçiş yapar, seçim bu tarayıcıda kalır",tt_loc:"Arayüz dili",tt_voice:"Claude’un cevaplarını okuyan ses",
   tt_lang:"Konuştuğun dil. Whisper bu dilde yazıya döker",
   tt_name:"Komutların başına/sonuna söylediğin çağrı adı",
   tt_rename:"Adı değiştir ya da açık bir konuşmaya bağla",
@@ -901,7 +904,7 @@ const I18N={
   tt_loadreset:"Loads the selected command set; pick the same one to reset",
   tt_try:"Shows which command your sentence would hit",
   tt_addcmd:"Adds this sentence as a pattern of the chosen command",
-  tt_theme:"Switches between light and dark, remembered in this browser",tt_loc:"Interface language",tt_voice:"Voice that reads Claude’s replies",
+  tt_home:"Back to the control page",tt_theme:"Switches between light and dark, remembered in this browser",tt_loc:"Interface language",tt_voice:"Voice that reads Claude’s replies",
   tt_lang:"The language you speak. Whisper transcribes in it",
   tt_name:"The wake name you say with every command",
   tt_rename:"Rename or link to an open conversation",
