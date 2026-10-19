@@ -1508,7 +1508,22 @@ function renderRest(d){
     : `<span class="chip ${k}">${esc(String(v))}</span>`).join("");
 }
 const nl=document.getElementById("navLoc"); if(nl) nl.value=LOC;
-applyLoc(); tick(); setInterval(tick,1000);
+// The panel polls once a second while you are looking at it. In a hidden
+// tab that is wasted work: the fetch, the re-render and the compositing all
+// cost, and the page is behind another window anyway. Hidden, it drops to
+// once every five seconds and catches up the moment it comes back.
+let TICKT=null;
+function tickSchedule(){
+  clearTimeout(TICKT);
+  const hidden = document.visibilityState !== "visible";
+  TICKT = setTimeout(tickLoop, hidden ? 5000 : 1000);
+}
+async function tickLoop(){ try{ await tick(); } finally { tickSchedule(); } }
+document.addEventListener("visibilitychange", ()=>{
+  if(document.visibilityState === "visible") tick();
+  tickSchedule();
+});
+applyLoc(); tick(); tickSchedule();
 </script></body></html>"""
 
 
