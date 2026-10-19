@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The panel polls the state once a second while you are looking at it and
+  once every five seconds in a hidden tab, catching up the moment it comes
+  back. A panel left open behind other windows was paying for a fetch, a
+  re-render and the compositing every second for nothing.
+
 ### Added
 
 - The panel now carries the app icon: the browser tab, a bookmark and a home
