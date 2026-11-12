@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A headset connected after the app started was missing from the pickers.**
+  PortAudio reads its device list once at start-up, so AirPods paired later
+  showed up in macOS but not in the panel's microphone and speaker lists. The
+  list is now rebuilt when those pickers are actually looked at (opening
+  Settings, or clicking either dropdown), at most once every 15 seconds. It
+  stays out of the background loop on purpose: a rescan there wakes
+  Continuity devices nobody asked for.
+
 - **The iPhone microphone kept being pulled in.** Rebuilding the audio
   stream tears PortAudio down and back up, which re-enumerates every device
   and wakes Continuity devices nobody asked for; the Mac then warned that the
