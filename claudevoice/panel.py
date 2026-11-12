@@ -696,12 +696,12 @@ background:rgba(0,255,163,.07);border:1px solid rgba(0,255,163,.35)}
   </div>
   <div class="set">
     <span class="k" data-i18n="k_mic">Mikrofon</span>
-    <select id="stIn" data-i18n-title="tt_mic"
+    <select onmousedown="refreshDevices()" id="stIn" data-i18n-title="tt_mic"
       onchange="go('set_input_device',this.value).then(r=>{if(r&&r.msg)toast(r.msg,toastKind(r.msg));})"></select>
   </div>
   <div class="set">
     <span class="k" data-i18n="k_spk">Hoparlör</span>
-    <select id="stOut" data-i18n-title="tt_spk"
+    <select onmousedown="refreshDevices()" id="stOut" data-i18n-title="tt_spk"
       onchange="go('set_output_device',this.value).then(r=>{if(r&&r.msg)toast(r.msg,toastKind(r.msg));})"></select>
   </div>
   <div class="set">
@@ -1127,12 +1127,24 @@ function gotoCmds(){
   if(c){ c.classList.add("hlbg"); c.scrollIntoView({behavior:"smooth",block:"center"}); }
   setTimeout(()=>{ HILITE=false; if(c) c.classList.remove("hlbg"); renderCmds(); }, 12000);
 }
+// The microphone and speaker lists come from PortAudio, which only learns
+// about a headset that connected later when its list is rebuilt. That is
+// done here, when the pickers are actually looked at, and at most once every
+// 15 seconds; in the background it would wake devices nobody asked for.
+let DEVREF=0;
+function refreshDevices(){
+  const now=Date.now();
+  if(now-DEVREF < 15000) return;
+  DEVREF=now;
+  go("devices_refresh");
+}
 function page(p){
   document.querySelectorAll("section[data-p]").forEach(
     el=>el.classList.toggle("on", el.dataset.p===p));
   document.querySelectorAll(".tabs button").forEach(
     el=>el.classList.toggle("on", el.dataset.p===p));
   try{ localStorage.setItem("vp_page", p); }catch(e){}
+  if(p==="ayar") refreshDevices();
 }
 try{ const sp=localStorage.getItem("vp_page"); if(sp) setTimeout(()=>page(sp),0); }catch(e){}
 async function saveName(){

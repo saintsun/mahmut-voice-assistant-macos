@@ -1075,6 +1075,12 @@ class ClaudeVoice(rumps.App):
             n = len(self.history)
             self.history.clear()
             self._set_status(f"kayıt temizlendi ({n})")
+        elif action == "devices_refresh":
+            # The pickers were opened. PortAudio caches its device list at
+            # start-up, so a headset connected later is missing until the
+            # list is rebuilt. Doing it here, on demand, keeps it out of the
+            # background loop (a rescan wakes Continuity devices).
+            self.mic.refresh_device(rescan=True)
         elif action == "mic_refresh":
             name = self.mic.refresh_device(rescan=True)
             self._set_status(f"mikrofon yenilendi: "
